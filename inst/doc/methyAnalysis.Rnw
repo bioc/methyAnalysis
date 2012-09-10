@@ -1,0 +1,219 @@
+%
+%\VignetteIndexEntry{An Introduction to the methyAnalysis package}
+%\VignetteKeywords{DNA methylation, tutorial, graphics, Illumina}
+
+%
+%\VignetteDepends{Biobase, TxDb.Hsapiens.UCSC.hg19.knownGene}
+%\VignettePackage{methyAnalysis}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[12pt]{article}
+\usepackage{amsmath,fullpage}
+\usepackage{hyperref}
+
+\newcommand{\R}{{\textsf{R}}}
+\newcommand{\code}[1]{{\texttt{#1}}}
+\newcommand{\term}[1]{{\emph{#1}}}
+\newcommand{\Rpackage}[1]{\textsf{#1}}
+\newcommand{\Rfunction}[1]{\texttt{#1}}
+\newcommand{\Robject}[1]{\texttt{#1}}
+\newcommand{\Rslot}[1]{\texttt{#1}}
+\newcommand{\Rclass}[1]{{\textit{#1}}}
+\newcommand{\Rmethod}[1]{{\textit{#1}}}
+\newcommand{\Rfunarg}[1]{{\textit{#1}}}
+
+
+\author{Pan Du$^\ddagger$\footnote{dupan.mail (at) gmail.com}  and Richard Bourgon$^\ddagger$}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\SweaveOpts{keep.source=TRUE}
+
+<<init, echo=FALSE>>=
+options(width=50)
+@ 
+
+\title{\Rpackage{methyAnalysis}: an R package for DNA methylation data analysis and visualization}
+\maketitle
+\begin{center}$^\ddagger$Department of Bioinformatics and Computational Biology \\ Genentech Inc., South San Francisco, CA, 94080, USA
+\end{center}
+
+\tableofcontents
+
+\section{Introduction}
+
+The \Rpackage{methyAnalysis} package aims to provide functionalities of analyzing and visualizing the DNA methylation data. 
+
+As most DNA-methylation data is still array-based, most public analysis tools use traditional probe-based analysis methods. However, with the increase of probe density, considering the probe spatial information becomes more and more important for better understanding the data. To meet this need, we developed this package for chromosome location based DNA methylation analysis. The current version of the package mainly focus on analyzing the Illumina Infinium methylation array data preprocessed by the \Rpackage{lumi} package [1], but most methods can be generalized to other methylation array or sequencing data. Functions specificly designed for DNA methylation sequencing data will be added in the near future.
+
+The package mainly provides functions in the following aspects:
+
+1. Defines a new class, \Rclass{MethyGenoSet}, and related methods for the chromosome-location based DNA methylation analysis.
+
+2. Provides functions related with differential methylation analysis, slide-window smoothing of DNA methylation levels, DMR (Differentially Methylation Region) detection and annotation.
+
+3. Visualization of the DNA methylation data. 
+
+
+\section{MethyGenoSet-class}
+
+In order to keep the chromosome location information together with the data, we defined a new \Rclass{MethyGenoSet} class as a direct extension of the \Rclass{GenoSet} class in the \Rpackage{genoset} package. The \Rclass{GenoSet} class is an extension of \Rclass{eSet} class. It keeps the chromosome location information in an additional \Rslot{locData} slot, a \Rclass{RangedData} object. For convenience of retrieving the methylation data, we keeps the DNA methylation data (using M-value [2] by default) in the \Rslot{exprs} \Rslot{assayData} element. Users can easily retrieve the methylation data by using \Rmethod{exprs} method.
+
+
+\subsection{Example dataset}
+For better understanding the package, we created a small example dataset, \Robject{exampleMethyGenoSet}. The \Robject{exampleMethyGenoSet} consists of eight random selected cancer cell line samples from two tissues. To save space, only probes in chromosome 21 were included.
+
+
+<<load library and example data>>=
+library(methyAnalysis)
+## load the example data
+data(exampleMethyGenoSet)
+
+## show MethyGenoSet class
+slotNames(exampleMethyGenoSet)
+# showClass('MethyGenoSet')
+
+## get chromosome location information
+head(locData(exampleMethyGenoSet))
+
+## retrieve methylation data
+dim(exprs(exampleMethyGenoSet))
+
+## Sample information
+pData(exampleMethyGenoSet)
+@
+
+
+\section{Identifying Differentially Methylated Regions (DMR)}
+
+One common DNA methylation analysis task is to identify Differentially Methylated Regions (DMR) between two comparison groups. Similar as the expression microarray analysis, many existing differential test methods can be used here. However, most of these methods do not consider the probe spatial information and assuming probe measurements are independent to each other.
+
+\subsection{DNA methylation correlation between nearby CpG-sites}
+ For DNA methylation data, we observed strong correlation between nearby CpG-sites. Figure \ref{correlation_localWindow} shows the correlation between nearby CpG-sites. The x-axis is the distance between nearby CpG-sites and the y-axis is the Pearson correlation of the related methylation profiles of 49 cell line samples (data not shown). The red dots are the median correlation of the 5 percentile cut (ranked by the distance between nearby CpG-sites (x-axis)). We can see the correlaiton is very strong when the CpG-sites are close to each other. 
+ 
+ 
+\begin{figure}
+\includegraphics{correlation_localWindow}
+\caption{DNA methylation correlation between nearby CpG-sites}
+\label{correlation_localWindow}
+\end{figure}
+
+
+On the other hand, due to the sequence variation across samples and fixed probe designs, the array-based DNA-methylation data also tends to be noisy. By considering the oberseved strong correlation between nearby CpG-sites, we can reduce the measurement noise by using sliding-window smoothing. \Rfunction{smoothMethyData} function is designed for this purpose. By default, we set winSize (half-window size) as 250bp, which is selected based on Figure \ref{correlation_localWindow}.
+
+<<Slide-window smoothing of the DNA methylation data>>=
+methyGenoSet.sm <- smoothMethyData(exampleMethyGenoSet, winSize = 250)
+
+## winsize is kept as an attribute
+attr(methyGenoSet.sm, 'windowSize')
+@
+
+
+\subsection{Differential methylation test}
+
+Function \Rfunction{detectDMR.slideWin} is designed to perform differential methylation test. The function will automatically check whether the methylation data has been smoothed or not. If not, slide window smoothing will be performed first. The current version only implement 't-test' and wilcox test for the differential methylation test. A more flexible \Rfunction(lm)-based method will be added in the future version.
+
+<<Differential methylation test>>=
+## get sample type information
+sampleType <- pData(exampleMethyGenoSet)$SampleType
+
+## Do differential test
+allResult <- detectDMR.slideWin(exampleMethyGenoSet, sampleType=sampleType)
+head(allResult)
+@
+
+\subsection{Define differentially methylated regions}
+
+We define a differentially methylated region (DMR) as a region, in which most measured CpG-sites are differentially methylated. To identify DMRs, we first determine the differential methylation status of each probe, then merge them as a continuous region. The \Rfunction{identifySigDMR} function is a wrapper function for all of these. The \Rfunction{getContinuousRegion} function is called by \Rfunction{identifySigDMR} to detection continous regions. Its input is a GRanges object with a "status" column to show whether the probe is differentially methylated or not. Its output is also a GRanges object indicating the identified DMRs. The \Rfunction{identifySigDMR} function returns a list of two GRanges objects. \Robject{sigDMRInfo} includes the identified DMRs, and \Robject{sigDataInfo} includes all differentially methylated probe information.
+
+<<Identifying DMR>>=
+## Identify the DMR (Differentially Methylated Region) by setting proper parameters.
+## Here we just use default ones
+allDMRInfo = identifySigDMR(allResult)
+names(allDMRInfo)
+@
+
+
+\section{Annotating DMRs}
+
+To understand what genes or gene elements (promoters or exons) are overlapping with these identified DMRs, we need to do annotate. The \Rfunction{annotateDMRInfo} is defined for this purpose. A \Rclass{TranscriptDb} annotation package is required for the annotation process. Here we use the \Rpackage{TxDb.Hsapiens.UCSC.hg19.knownGene} package for the annotation. The \Rpackage{TxDb.Hsapiens.UCSC.hg19.knownGene} package includes the Homo Sapiens data from UCSC build hg19 based on the knownGene Track. Other \Rclass{TranscriptDb} annotation packages, \Rclass{TranscriptDb} or GRanges objects can also be used as annotationDatabase. The \Rfunction{export.DMRInfo} function is to output the annotated DMR information as .csv files.
+
+<<Identifying DMR>>=
+## Annotate significant DMR info
+DMRInfo.ann <- annotateDMRInfo(allDMRInfo, 'TxDb.Hsapiens.UCSC.hg19.knownGene')
+
+## output the DMR information
+export.DMRInfo(DMRInfo.ann, savePrefix='testExample')
+@
+
+
+\section{Visualizing DNA methylation data}
+
+As the DNA methylation levels are chromose location dependent. The methylation patterns can be pretty different between different gene elements, like promoter, exon1, intron and exons. The methylation patterns within the CpG-islands usually are also different from other regions. In order to better understanding these difference, we need to visualize the DNA methylation data. Two visualization options are supported in the \Rpackage{methyAnalysis} package.
+
+\subsection{Export data for external visualization}
+One easier option is to export the DNA methylation data in certain formats, and visualize these files using some genome browser tools, like IGV (http://www.broadinstitute.org/igv/) and IGB (http://bioviz.org/igb/index.html). Users can use \Rfunction{export.methyGenoSet} to output the \Rfunction{MethyGenoSet} object. The current implementation supports two output formats: ".gct" and ".bw" files. ".gct" includes all samples in a single file. It is only supported by IGV genome browser. The BigWig format (".bw") is a more general format supported by many visualization tools. Each BigWig file represents one single sample. So it is more flexible for the users only interested in a subset of samples. 
+
+
+<<Export data for external tools, eval=FALSE>>=
+## output in IGV supported "gct" file
+export.methyGenoSet(exampleMethyGenoSet, file.format='gct', savePrefix='test')
+## output in BigWig files
+export.methyGenoSet(exampleMethyGenoSet, file.format='bw', savePrefix='test')
+@
+
+
+\subsection{Plot methylation heatmap by chromosome location}
+
+Another visualization option is to show a focused regions, like DMRs, as a chomosome location based heatmap. \Rfunction{heatmapByChromosome} is designed for this. It is adapted based on the \Rfunction{plotTracks} function in \Rpackage{Gviz} package. The function is designed for different types of data with chromosome location information. Figure \ref{fig:heatmap} shows an example plot of gene SIM2 (Entrez Gene ID:6493), which overlaps with the identified DMRs shown above. Users can also provide a \Rclass{GRanges} object to specify a plot region.
+
+\begin{Sinput}
+> ## plot the DNA methylation heatmap by chromosome location
+> heatmapByChromosome(exampleMethyGenoSet, gene='6493',  
+  genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', includeGeneBody=TRUE)	
+\end{Sinput}
+
+Another wrapper function, \Rfunction{plotMethylationHeatmapByGene}, is specifically designed for the methylaiton data. Users can add phenotypes or matched gene expression data to the right panel of the plot. Figure legends can be also added, as shown in Figure \ref{fig:heatmap_phenotype}. By default, the \Rfunction{plotMethylationHeatmapByGene} plots methylation Beta-values [2] (in the range of 0 to 1) instead of M-values. Users can set \Rfunarg{useBetaValue} as FALSE if they want to change to M-values.
+
+\begin{Sinput}
+> ## plot the DNA methylation heatmap by gene of selected GRanges
+> plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, 
+    phenotype=pData(exampleMethyGenoSet), includeGeneBody=TRUE,
+    genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene')  
+\end{Sinput}
+
+
+\begin{figure}
+\centering
+<<heatmap, fig=TRUE, quiet=TRUE, echo=FALSE>>=
+heatmapByChromosome(exampleMethyGenoSet, gene='6493',  genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', includeGeneBody=TRUE, newPlot=FALSE)
+@
+\caption{DNA methylation heatmap by chromosome location}
+\label{fig:heatmap}
+\end{figure}            
+
+
+\begin{figure}
+\centering
+<<heatmap_phenotype, fig=TRUE, quiet=TRUE, echo=FALSE>>=
+plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, includeGeneBody=TRUE,
+    phenotype=pData(exampleMethyGenoSet), genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
+    newPlot=FALSE)
+@
+\caption{DNA methylation heatmap by chromosome location with phenotype information}
+\label{fig:heatmap_phenotype}
+\end{figure}            
+
+
+\section{sessionInfo}
+
+<<results=tex>>=
+toLatex(sessionInfo())
+@ 
+
+\section{References}
+
+1. Du P, Kibbe WA and Lin SM: "lumi: a Bioconductor package for processing Illumina microarray" Bioinformatics 2008 24(13):1547-1548
+
+2. Du P, Zhang X, Huang CC, Jafari N, Kibbe WA, Hou L, and Lin SM: "Comparison of Beta-value and M-value methods for quantifying methylation levels by microarray analysis", BMC Bioinformatics 2010, 11:587
+
+\end{document}

@@ -1,0 +1,903 @@
+
+
+
+## convert MethyLumiM class object to GenoSet class object
+MethyLumiM2GenoSet <- function(methyLumiM, lib="IlluminaHumanMethylation450k.db") {
+	oldFeatureData <- fData(methyLumiM)
+	methyLumiM <- addAnnotationInfo(methyLumiM, lib=lib)
+	ff <- fData(methyLumiM)
+	if (is.null(ff$CHROMOSOME))
+		stop('Chromosome information is not available!\n')
+		
+	## remove those without chromosome location
+	rmInd <- which(is.na(ff$CHROMOSOME) | ff$CHROMOSOME == '')
+	if (length(rmInd) > 0) {
+		ff <- ff[-rmInd,]
+		methyLumiM <- methyLumiM[-rmInd,]
+	}
+	ff$CHROMOSOME <- checkChrName(ff$CHROMOSOME)
+	
+	hgVersion <- ''
+	## retrieve the hgVersion information from the annotation library
+	if (require(lib, character.only=TRUE)) {
+		dbInfo <- do.call(paste(sub('.db$', '', lib), '_dbInfo', sep=''), list())
+		rownames(dbInfo) <- dbInfo$name
+		hgVersion <- strsplit(dbInfo['GPSOURCEURL', 'value'], '/')[[1]]
+		hgVersion <- hgVersion[length(hgVersion)]
+	}
+	## create RangedData for location information
+	locdata <- RangedData(ranges=IRanges(start=ff$POSITION, width=1, names=featureNames(methyLumiM)), space=ff$CHROMOSOME, universe=hgVersion)
+
+	methyGenoSet <- MethyGenoSet(locData=locdata, pData=pData(methyLumiM), annotation=as.character(lib), exprs=exprs(methyLumiM), methylated=methylated(methyLumiM), 
+		unmethylated=unmethylated(methyLumiM), detection=detection(methyLumiM), universe=hgVersion)
+	fData(methyGenoSet) <- oldFeatureData[featureNames(methyGenoSet), ]
+	methyGenoSet@history <- methyLumiM@history
+	
+	## set smoothing attributes if exists
+	if (!is.null(attr(methyLumiM, 'windowIndex')))
+		attr(methyGenoSet, 'windowIndex') <- attr(methyLumiM, 'windowIndex')
+	if (!is.null(attr(methyLumiM, 'windowRange')))
+		attr(methyGenoSet, 'windowRange') <- attr(methyLumiM, 'windowRange')
+	if (!is.null(attr(methyLumiM, 'windowSize')))
+		attr(methyGenoSet, 'windowSize') <- attr(methyLumiM, 'windowSize')
+
+	return(methyGenoSet)
+}
+
+
+## smooth the methylation data (MethyLumiM or MethyGenoSet objects) using slide window with fixed windowsize (in bp)
+smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylation450k.db', ...) {
+
+	if (!is(methyData, 'MethyGenoSet') && !is(methyData, 'MethyLumiM')) {
+		stop("methyData should be a MethyGenoSet or MethyLumiM object!")
+	}
+	
+	if (is(methyData, 'MethyLumiM')) {
+		chrInfo <- getChrInfo(methyData, lib=lib)
+	} else {
+		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=space(methyData), POSITION=start(methyData), END=end(methyData))
+	}
+	ratioData <- as.data.frame(exprs(methyData))
+
+	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
+	# remove those probes lack of position information
+	rmInd <- which(is.na(chrInfo$POSITION) | chrInfo$CHROMOSOME == '' )
+	if (length(rmInd) > 0)	{
+		ratioData <- ratioData[-rmInd,]
+		chrInfo <- chrInfo[-rmInd,]
+	}
+	
+	# Sort the ratioData by chromosome and location
+	ord <- order(chrInfo$CHROMOSOME, chrInfo$POSITION, decreasing=FALSE)
+	ratioData <- ratioData[ord,]
+	chrInfo <- chrInfo[ord,]
+	
+	# split data by Chromosome 
+	ratioData.chrList <- split(ratioData, as.character(chrInfo$CHROMOSOME))
+	chrInfoList <- split(chrInfo, as.character(chrInfo$CHROMOSOME))
+	windowIndex <- vector(mode='list', length=length(chrInfoList))
+	windowRange <- vector(mode='list', length=length(chrInfoList))
+	smooth.ratioData <- lapply(seq(ratioData.chrList), function(i) {
+ 
+		ratioData.i <- as.matrix(ratioData.chrList[[i]])
+		chrInfo.i <- chrInfoList[[i]]
+		chr.i <- chrInfo.i$CHROMOSOME[1]
+		cat(paste("Smoothing Chromosome", chr.i, "...\n"))
+
+		# return the index of sorted probes in each slide window
+		windowIndex.i <- eval(call(".setupSlidingTests", pos_data=chrInfo.i$POSITION, winSize=winSize))
+		names(windowIndex.i) <- chrInfoList[[i]]$PROBEID
+		smooth.ratio.i <- sapply(windowIndex.i, function(ind) {
+			# average the values in slide window and perform test
+			smooth.ij <- colMeans(ratioData.i[ind,,drop=FALSE])
+			return(smooth.ij)
+		})
+		smooth.ratio.i <- t(smooth.ratio.i) 
+		windowIndex[[i]] <<- windowIndex.i
+		windowRange.i <- sapply(windowIndex.i, function(ind) {
+			# average the values in slide window and perform test
+			range.ij <- range(chrInfo.i$POSITION[ind])
+			return(range.ij)
+		})
+		windowRange[[i]] <<- t(windowRange.i)
+		cat("\n")
+		return(smooth.ratio.i)	
+	})
+	smooth.ratioData <- do.call('rbind', smooth.ratioData)
+	windowRange <- do.call('rbind', windowRange)
+	colnames(windowRange) <- c('startLocation', 'endLocation')
+
+	methyData <- methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)]
+	exprs(methyData) <- smooth.ratioData[featureNames(methyData),]
+
+	attr(methyData, 'windowIndex') <- windowIndex
+	attr(methyData, 'windowRange') <- windowRange
+	attr(methyData, 'windowSize') <- winSize
+	return(methyData)
+}
+
+
+## export a MethyGenoSet object as a 'gct' (for IGV) or 'bw' (big-wig) file
+export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), exportValue=c('beta', 'M'), savePrefix=NULL) {
+	
+	exportValue <- match.arg(exportValue)
+	file.format <- match.arg(file.format)
+	## get the annotation version
+	hgVersion <- universe(methyGenoSet)
+	
+	chr <- space(methyGenoSet)
+	start <- start(methyGenoSet)
+	## Sort the rows of ratios.obj
+	methyGenoSet <- methyGenoSet[order(chr, start),]
+	
+	## check overlap probes and average them
+	locationID <- paste(chr, start, sep='_')
+	dupInd <- which(duplicated(locationID))
+	if (length(dupInd) > 0) {
+		dupID <- unique(locationID[dupInd])
+		for (dupID.i in dupID) {
+			selInd.i <- which(locationID == dupID.i)
+			exprs(methyGenoSet)[selInd.i[1],] <- colMeans(exprs(methyGenoSet)[selInd.i,], na.rm=TRUE)
+		}
+		methyGenoSet <- methyGenoSet[-dupInd,]
+	}
+	## attach chr prefix in the chromosome names if it does not include it
+	if (length(grep('^chr', chr)) == 0) {
+		names(locData(methyGenoSet)) <- paste('chr', names(locData(methyGenoSet)), sep='')
+	} 
+	
+	methyData <- assayDataElement(methyGenoSet, 'exprs')
+	if (exportValue == 'beta') {
+		methyData <- m2beta(methyData) # - 0.5
+	} 
+	
+	## only keep 3 digit to save space
+	methyData <- signif(methyData, 3)
+	
+	if (file.format == 'gct') {
+		chrInfo <- data.frame(PROBEID=featureNames(methyGenoSet), CHROMOSOME=space(locData(methyGenoSet)), START=start(methyGenoSet), END=end(methyGenoSet),	stringsAsFactors=FALSE)
+
+		# remove those probes lack of position information
+		rmInd <- which(is.na(chrInfo$START))
+		if (length(rmInd) > 0)	{
+			chrInfo <- chrInfo[-rmInd,]
+			methyData <- methyData[-rmInd,]
+		}
+		
+		description <- with(chrInfo, paste("|@", CHROMOSOME, ":", START, "-", END, "|", sep=""))
+		gct <- cbind(Name=chrInfo[,'PROBEID'], Description=description, methyData)
+		
+		## check version hgVersion is included in the filename
+		 filename <- paste(savePrefix, "_", exportValue, "_", hgVersion, ".gct", sep='')
+		
+		cat("#1.2\n", file=filename)
+		cat(paste(dim(gct), collapse='\t', sep=''), "\n", file=filename, append=TRUE)
+		suppressWarnings(write.table(gct, sep="\t", file=filename, row.names=FALSE, append=TRUE, quote=FALSE))
+		return(invisible(filename))
+
+	} else if (file.format == 'bw') {
+ 		chrInfo <- getChromInfoFromUCSC(hgVersion)
+		rownames(chrInfo) <- chrInfo[,'chrom']
+ 
+		samplenames <- sampleNames(methyGenoSet)
+		pdata <- pData(methyGenoSet)
+		chr.info <- chrInfo(methyGenoSet)
+		seq.lengths <- chr.info[,"stop"] - chr.info[,"offset"]
+		for (i in 1:ncol(methyData)) {		
+			score.i <- methyData[,i]
+			cn.data.i <- GRanges(seqnames=space(locData(methyGenoSet)), ranges=IRanges(start=start(methyGenoSet),end=end(methyGenoSet)), strand='*', score=score.i)
+			genome(cn.data.i) <- universe(methyGenoSet)
+			cn.data.i <- cn.data.i[!is.na(score.i), ]
+			if (savePrefix == '' || is.null(savePrefix)) {
+				savePrefix.i <- samplenames[i]
+			} else {
+				savePrefix.i <- paste(savePrefix, samplenames[i], sep='_')
+			}
+			
+			seqlengths(cn.data.i) <- chrInfo[as.character(seqlevels(cn.data.i)), 'length']
+			filename.i <- paste(savePrefix.i, "_", exportValue, "_", hgVersion, ".bw", sep='')
+			export.bw(cn.data.i, filename.i, dataFormat="auto")
+		}
+		return(invisible(filename.i))
+	}
+	
+}
+
+
+# This is the sliding test
+## ratios.obj inlcudes c("PROBEID","CHROMOSOME","POSITION"), values 
+## winSize is the half slide window size, by default it is 250
+## 
+detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod=c('ttest', 'wilcox'), p.adjust.method='fdr', ...) {
+	
+	if (is(methyGenoSet, 'MethyLumiM')) {
+		methyGenoSet <- MethyLumiM2GenoSet(methyGenoSet, ...)
+	}
+	
+	smooth <- TRUE
+	if (!is.null(attr(methyGenoSet, 'windowIndex'))) {
+		smooth <- FALSE
+		if (!is.null(attr(methyGenoSet, 'windowSize'))) {
+			if (attr(methyGenoSet, 'windowSize') != winSize) smooth <- TRUE
+		}
+	} 
+	if (smooth) {
+		methyGenoSet <- smoothMethyData(methyGenoSet, winSize=winSize, ...)
+	}
+	windowIndex <- attr(methyGenoSet, 'windowIndex')	
+	windowRange <- attr(methyGenoSet, 'windowRange')
+	
+	chrInfo <- suppressWarnings(as(locData(methyGenoSet), 'GRanges'))
+	smoothData <- exprs(methyGenoSet)
+	
+	## calculate class means
+	uniClass <- unique(sampleType)
+	selInd1 <- which(sampleType == uniClass[1])
+	selInd2 <- which(sampleType == uniClass[2])
+	classMean <- data.frame(rowMeans(smoothData[, selInd1, drop=FALSE]), rowMeans(smoothData[, selInd2, drop=FALSE]))
+	names(classMean) <- paste('mean_', uniClass, sep='')
+
+	if (!is.factor(sampleType)) sampleType <- as.factor(sampleType)
+
+	## perform t-test
+	if (is.function(testMethod)) {
+		testInfo <- testMethod(smoothData, sampleType, ... )
+	} else {
+		if (testMethod == 'ttest') {
+			tstats <- rowttests(smoothData, sampleType)
+			p.value <- tstats$p.value
+			difference <- tstats$dm
+		} else if (testMethod == 'wilcox') {
+			tmp <- split(as.data.frame(t(smoothData)), sampleType)
+			xx <- t(tmp[[1]])
+			yy <- t(tmp[[2]])
+			p.value <- apply(cbind(xx, yy), 1, function(x) wilcox.test(x[1:ncol(xx)], x[(ncol(xx)+1):length(x)])$p.value, ...)
+			difference <- classMean[,1]	- classMean[,2]	
+		} else {
+			stop('Unsupported "testMethod"!')
+		}
+		p.adjust <- p.adjust(p.value, method=p.adjust.method)
+		testInfo <- data.frame(PROBEID=rownames(smoothData), difference=difference, p.value=p.value, p.adjust=p.adjust)
+	}
+
+	startInd <- unlist(lapply(windowIndex, function(x) sapply(x, min)))[rownames(smoothData)]
+	endInd <- unlist(lapply(windowIndex, function(x) sapply(x, max)))[rownames(smoothData)]
+	testInfo <- data.frame(testInfo, startWinIndex=startInd, endWinIndex=endInd, windowRange, classMean)
+	testResult <- chrInfo
+	
+	## export as a GRanges object
+	values(testResult) <- testInfo
+	return(testResult)
+}
+
+
+identifySigDMR <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, fdrTh=pValueTh, diffTh=1, 
+			minProbeNum=1, maxGap=2000, minGap=100, oppositeMethylation=FALSE, topNum=NULL) {
+	
+	if (is(detectResult, 'GRanges')) {
+		detectResult.g <- detectResult
+		detectResult <- data.frame(CHROMOSOME=as.character(seqnames(detectResult)), POSITION=start(detectResult), as(values(detectResult), 'data.frame'))
+		rownames(detectResult) <- names(detectResult.g)
+	} else if (is(detectResult, 'data.frame')) {
+		if (!all(c("PROBEID","CHROMOSOME","startLocation", "endLocation") %in% names(detectResult)))
+			stop(" PROBEID, CHROMOSOME, startLocation and endLocation are required columns in the detectResult object!")
+		# remove those probes lack of position information
+		rmInd <- which(is.na(detectResult$POSITION))
+		if (length(rmInd) > 0) {
+			detectResult <- detectResult[-rmInd,]
+		}
+		## convert it as a GRanges object
+		tmp <- with(detectResult, GRanges(seqnames=CHROMOSOME, ranges=IRanges(start=startLocation, end=endLocation), strand='*'))
+		rmInd <- which(colnames(detectResult) %in% c('CHROMOSOME', 'startLocation', 'endLocation', 'width'))
+		values(tmp) <- detectResult[,-rmInd, drop=FALSE]
+		detectResult.g <- tmp
+		names(detectResult.g) <- rownames(detectResult)
+	} else {
+		stop('detectResult should be either a GRanges object or a data.frame with required columns!')
+	}
+
+	## No pValue constraint if we only interested in the top CpG-sites
+	if (!is.null(topNum) && !is.na(topNum)) pValueTh <- 1
+	
+	## if there is no isSignificant column, then DMR should be identified first
+	if (is.null(detectResult$isSignificant) || is.null(topNum) || is.na(topNum)) {
+		detectResult <- .identifySigProbe(detectResult, p.adjust.method=p.adjust.method, pValueTh=pValueTh, fdrTh=fdrTh, diffTh=diffTh)
+	}
+
+	## Select the significant CpG-sites
+	sigInd <- which(detectResult$isSignificant)
+
+	## check the methylation direction of two conditions for each probe
+	classMeanCol <- grep('^mean_', names(detectResult), value=TRUE)
+	# if (length(classMeanCol) == 2) {
+	# 	classMean <- detectResult[,classMeanCol]
+	# 	if (oppositeMethylation) {
+	# 		sigInd <- sigInd[classMean[sigInd,1] * classMean[sigInd,2] < 0]
+	# 	}
+	# } 
+
+	if (!is.null(topNum) && !is.na(topNum)) {
+		ord <- order(detectResult$p.value[sigInd], decreasing=FALSE)
+		sigInd <- sigInd[ord]
+		if (topNum < length(sigInd)) {
+			rmInd <- sigInd[-(1:topNum)]
+			detectResult$isSignificant[rmInd] <- FALSE
+			sigInd <- sigInd[1:topNum]
+		}
+	} else {
+		if (length(sigInd) == 0) {
+			cat('No significant CpG-sites were identified based on current criteria!\n')
+			return(NULL)
+		}
+	}
+	sigProbe <- rownames(detectResult)[sigInd]
+	detectResult$status <- rep(FALSE, nrow(detectResult))
+	detectResult[sigProbe, 'status'] <- TRUE
+
+	if (length(sigProbe) == 0) {
+		return(list(sigDMRInfo=NULL, sigDataInfo=NULL))
+	}
+
+	## ---------------------------------------
+	## identify the boundary of DMR (return a GRanges object)
+	sigDMRInfo.g <- getContinuousRegion(detectResult, scoreColumns=c('p.value', 'difference', 'p.adjust', classMeanCol), 
+							 scoreFun=c(min, function(x) x[which.max(abs(x))], min), maxGap=maxGap, minGap=minGap)
+
+	sigDMRInfo <- as(sigDMRInfo.g, 'data.frame')
+	rownames(sigDMRInfo) <- names(sigDMRInfo.g)
+	
+	## filtering based on the minimum number of probes in each DMR
+	if (minProbeNum > 1) {
+		numProbe <- sigDMRInfo$NumOfProbe
+		sigDMRInfo <- sigDMRInfo[numProbe >= minProbeNum, ,drop=FALSE]
+		sigDMRInfo.g <- sigDMRInfo.g[numProbe >= minProbeNum]
+	}
+	
+	## check oppositeMethylation direction
+	if (length(classMeanCol) == 2 && oppositeMethylation) {
+		dmrMean <- sigDMRInfo[, classMeanCol]	
+		sigDMRInfo.g <- sigDMRInfo.g[dmrMean[,1] * dmrMean[,2] < 0]
+	}
+		
+	## only keep the sigDataInfo which overlaps with sigDMRInfo
+	sigDataInfo.g <- detectResult.g[sigProbe]
+	sigDataInfo.g <- sigDataInfo.g[!is.na(match(sigDataInfo.g, sigDMRInfo.g))]
+
+	return(list(sigDMRInfo=sigDMRInfo.g, sigDataInfo=sigDataInfo.g))
+}
+
+
+## Get continuous region from discrete probe measurements
+# getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFun=mean, maxGap=2000, minGap=100, as.GRanges=TRUE) {
+getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFun=mean, maxGap=2000, minGap=100) {
+
+	if (is.data.frame(detectResult)) {
+		if (!all(c('CHROMOSOME', 'POSITION', 'status') %in% names(detectResult))) {
+			stop('CHROMOSOME, POSITION and status columns are required!')
+		}
+		detectResult.g <- with(detectResult, GRanges(seqnames=CHROMOSOME, ranges=IRanges(start=POSITION, end=POSITION), strand='*'))
+		values(detectResult.g) <- detectResult[, !(colnames(detectResult) %in% c('CHROMOSOME', 'POSITION'))]
+	} else if (is(detectResult, 'GRanges')) {
+		detectResult.g <- detectResult
+		detectResult <- data.frame(CHROMOSOME=as.character(seqnames(detectResult)), POSITION=as.numeric(start(detectResult)), as(values(detectResult), 'data.frame'))
+	}
+	detectResult$POSITION <- as.numeric(detectResult$POSITION)
+	## sort in chromsome order
+	detectResult <- with(detectResult, detectResult[order(CHROMOSOME, POSITION, decreasing=FALSE),])
+	
+	if (is.null(detectResult$status)) {
+		stop('"status" column is required!')
+	} else {
+		if (!is.logical(detectResult$status)) {
+			warning('"status" column should be a logical vector! "status > 0" was used in calculation!')
+			detectResult$status <- detectResult$status > 0
+		}
+	}
+	## set NA as FALSE
+	detectResult$status[is.na(detectResult$status)] <- FALSE
+	if (!is.null(scoreColumns)) {
+		if (!all(scoreColumns %in% colnames(detectResult))) {
+			stop('Some "scoreColumns" does not match "detectResult"!')
+		}
+		if (length(scoreFun) < length(scoreColumns)) {
+			scoreFun <- rep(scoreFun, length(scoreColumns))
+		}
+	}
+	
+	## split data by Chromosome 
+	detectResult.chrList <- split(detectResult, detectResult$CHROMOSOME)
+	
+	## ---------------------------------------
+	## identify the boundary of DMR
+	dmr.list <- lapply(detectResult.chrList, function(detectResult.i) {
+		len.significant.i <- length(which(detectResult.i$status))
+		if (len.significant.i == 0) return(NULL)
+		
+		allPosition.i <- detectResult.i$POSITION
+		status.i <- as.numeric(detectResult.i$status)
+		diff.i <- diff(status.i)
+		
+		# identify the diff region
+		startInd.i <- which(diff.i == 1) + 1
+		if (status.i[1] == 1) 
+			startInd.i <- c(1, startInd.i)
+		endInd.i <- which(diff.i == -1)
+		if (length(endInd.i) < length(startInd.i)) 
+			endInd.i <- c(endInd.i, length(status.i))
+		
+		## check the gaps of sparse probe 
+		gaps.i <- which(c(FALSE, diff(allPosition.i) > maxGap) & status.i == 1) 
+		# the gap should be 1 in both sides
+		gaps.i <- gaps.i[status.i[gaps.i + 1] == 1]
+		if (length(gaps.i) > 0) {
+			startInd.i <- sort(c(startInd.i, gaps.i))
+			endInd.i <- sort(c(endInd.i, gaps.i))
+		}
+		
+		if ("startWinIndex" %in% colnames(detectResult.i)) {
+			startRegion.i <- detectResult.i[startInd.i, "startWinIndex"]
+			endRegion.i <- detectResult.i[endInd.i, "endWinIndex"] 
+			startLoc.i <- detectResult.i[startRegion.i, 'POSITION']
+			endLoc.i <- detectResult.i[endRegion.i, 'POSITION']
+			width.i <- endLoc.i - startLoc.i + 1
+			regionSummary.i <- data.frame(CHROMOSOME=detectResult.i[startRegion.i, 'CHROMOSOME'],
+				startLocation=startLoc.i, endLocation=endLoc.i, width=width.i, startInd=startRegion.i, endInd=endRegion.i)
+		} else {
+			startLoc.i <- detectResult.i[startInd.i, "POSITION"]
+			endLoc.i <- detectResult.i[endInd.i, "POSITION"] 
+			width.i <- endLoc.i - startLoc.i + 1
+			regionSummary.i <- data.frame(CHROMOSOME=detectResult.i[startInd.i, 'CHROMOSOME'],
+				startLocation=startLoc.i, endLocation=endLoc.i, width=width.i, startInd=startInd.i,
+				endInd=endInd.i)
+		}
+		return(regionSummary.i)
+	})
+	
+	sigDMRInfo <- do.call('rbind', dmr.list)
+
+	## convert as GRanges
+	tmp <- with(sigDMRInfo, GRanges(seqnames=CHROMOSOME, ranges=IRanges(start=startLocation, end=endLocation), strand='*'))
+	rmInd <- which(colnames(sigDMRInfo) %in% c('CHROMOSOME', 'startLocation', 'endLocation', 'width'))
+	values(tmp) <- sigDMRInfo[,-rmInd, drop=FALSE]
+	sigDMRInfo <- tmp
+
+	## combine overlapping regions
+	sigDMRInfo.r <- reduce(sigDMRInfo, min.gapwidth=minGap) 
+	
+	matchInfo <- GenomicRanges::match(detectResult.g, sigDMRInfo.r)
+	ind <- which(!is.na(matchInfo))
+	dmr2ind <- split(ind, matchInfo[ind])
+	dmr2len <- sapply(dmr2ind, length)
+	dmrInfo <- data.frame(NumOfProbe=dmr2len)
+
+	## calculate the mean score of each region	
+	if (!is.null(scoreColumns)) {
+		detectValue <- as.matrix(as(values(detectResult.g), 'data.frame')[,scoreColumns])
+		dmr2score <- lapply(dmr2ind, function(ind.i) {
+			colMeans(detectValue[ind.i,,drop=FALSE])
+		})
+		dmr2score <- do.call('rbind', dmr2score)
+		avg.score <- matrix(NA, nrow=length(sigDMRInfo.r), ncol=length(scoreColumns))
+		colnames(avg.score) <- scoreColumns
+
+		avg.score[as.numeric(rownames(dmr2score)),] <- dmr2score
+		dmrInfo <- data.frame(dmrInfo, as.data.frame(avg.score))
+	}
+	values(sigDMRInfo.r) <- dmrInfo
+	
+	return(sigDMRInfo.r)
+}
+
+
+annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, flankRange=0, promoterRange=2000, EntrezDB='org.Hs.eg.db') {
+	
+	if (!is(grange, 'GRanges')) {
+		stop('grange should be a GRanges object!')
+	}
+	grange <- checkChrName(grange, addChr=TRUE)	
+	
+	## load human genome information and check overlap with known genes
+	if (is.character(annotationDatabase)) {
+		if (file.exists(annotationDatabase)) {
+			annotationDatabase <- loadFeatures(annotationDatabase)		
+		} else if (require(annotationDatabase, character.only=TRUE)) {
+			annotationDatabase <- get(annotationDatabase)
+		} else {
+			stop('Provided annotationDatabase does not exist!')
+		}
+	} 
+	
+	if (is(annotationDatabase, 'TranscriptDb')) {
+		tr <- transcripts(annotationDatabase, columns=c('gene_id', 'tx_id', 'tx_name'))		
+	} else if (is(annotationDatabase, 'GRanges')) {
+		tr <- annotationDatabase
+	} else {
+		stop('Wrong type of annotationDatabase! Please check help for more details.')
+	}
+
+	## filter the transcripts without matching gene ids
+	tr <- tr[elementLengths(values(tr)$gene_id) > 0]
+	names(tr) <- values(tr)$tx_id
+	tr <- checkChrName(tr, addChr=TRUE)
+
+	if (is.character(CpGInfo)) {
+		CpG.grange <- import.bed(CpGInfo[1], asRangedData=FALSE)
+	} else if (is(CpGInfo, 'GRanges')) {
+		CpG.grange <- CpGInfo
+	} else if (is.null(CpGInfo) || is.na(CpGInfo)) {
+		CpG.grange <- NULL
+	} else {
+		stop('CpGInfo should be a bed file or a GRanges object!')
+	}
+	if (!is.null(CpGInfo)) CpGInfo <- checkChrName(CpGInfo, addChr=TRUE)
+	
+	## expand the transcript region
+	if (is(promoterRange, 'GRanges')) {
+		promoter <- promoterRange
+		promoter <- checkChrName(promoter, addChr=TRUE)
+	} else {
+		promoter <- flank(tr, width=promoterRange, both=FALSE, start=TRUE)
+	}
+
+	## expand the interested GRanges
+	if (flankRange != 0) {
+		grange.ext <- resize(grange, width=width(grange) + 2*flankRange, fix="center")
+	} else {
+		grange.ext <- grange
+	}
+	
+	## ----------------------------------------------------------
+	## find the overlapping with gene body
+	if (is.null(names(grange.ext))) {
+		values(grange.ext)$id <- make.unique(paste(seqnames(grange), start(grange), end(grange), sep="_"))
+	} else {
+		values(grange.ext)$id <- names(grange.ext)
+	}
+	OL.gene <- findOverlaps(grange.ext, tr)	
+	dmr2gene <- cbind(values(grange.ext)$id[queryHits(OL.gene)], 
+		unlist(values(tr)$gene_id)[subjectHits(OL.gene)])
+	dupInd <- duplicated(paste(dmr2gene[,1], dmr2gene[,2], sep='_'))
+	if (any(dupInd)) dmr2gene <- dmr2gene[!dupInd,,drop=FALSE]
+	dmr2gene.list <- split(dmr2gene[,2], as.factor(dmr2gene[,1]))
+	dmr2gene <- sapply(dmr2gene.list, function(x) paste(probe2gene(unique(x), lib=EntrezDB, collapse=TRUE), collapse=';'))
+	dmr2ll <- sapply(dmr2gene.list, function(x) paste(unique(x), collapse=';'))
+
+	## ----------------------------------------------------------
+	## find the overlapping with promoters
+	OL.promoter <- findOverlaps(grange.ext, promoter)	
+	dmr2promoter <- cbind(values(grange.ext)$id[queryHits(OL.promoter)], 
+		unlist(values(promoter)$gene_id)[subjectHits(OL.promoter)])
+	dupInd <- duplicated(paste(dmr2promoter[,1], dmr2promoter[,2], sep='_'))
+	if (any(dupInd)) dmr2promoter <- dmr2promoter[!dupInd,,drop=FALSE]
+	dmr2promoter.list <- split(dmr2promoter[,2], as.factor(dmr2promoter[,1]))
+	dmr2promoter <- sapply(dmr2promoter.list, function(x) paste(probe2gene(unique(x), lib=EntrezDB, collapse=TRUE), collapse=', '))
+	dmr2ll.promoter <- sapply(dmr2promoter.list, function(x) paste(unique(x), collapse=';'))
+	
+	## ----------------------------------------------------------
+	## check overlap with CpG islands
+	if (!is.null(CpGInfo)) {
+		OL.CpG <- findOverlaps(grange.ext, CpG.grange)	
+		dmr2CpG <- cbind(values(grange.ext)$id[queryHits(OL.CpG)], 
+			unlist(values(CpG.grange)$name)[subjectHits(OL.CpG)])		
+	} else {
+		dmr2CpG <- NULL
+	}
+
+	mapInfo <- matrix("", nrow=length(grange.ext), ncol=5)
+	colnames(mapInfo) <- c("EntrezID", "Genes", "promoter_EntrezID", "promoter_Genes", 'CpG_island')
+	rownames(mapInfo) <- values(grange.ext)$id
+	mapInfo[names(dmr2ll), 'EntrezID'] <- dmr2ll
+	mapInfo[names(dmr2gene), 'Genes'] <- dmr2gene
+	mapInfo[names(dmr2ll.promoter), 'promoter_EntrezID'] <- dmr2ll.promoter
+	mapInfo[names(dmr2promoter), 'promoter_Genes'] <- dmr2promoter
+	if (!is.null(dmr2CpG))
+		mapInfo[dmr2CpG[,1], 'CpG_island'] <- dmr2CpG[,2]
+
+	values(grange) <- data.frame(as(values(grange), 'data.frame'), mapInfo) 		
+	
+	return(grange)
+}
+
+
+## input of annotateDMR is the output of identifySigDMR
+annotateDMRInfo <- function(DMRInfo, annotationDatabase, CpGInfo=NULL, flankRange=500, promoterRange=2000, EntrezDB='org.Hs.eg.db', as.GRanges=TRUE) {
+	
+	if (all(c('sigDMRInfo', 'sigDataInfo') %in% names(DMRInfo))) {
+		sigDMRInfo <- DMRInfo$sigDMRInfo
+		sigDataInfo <- DMRInfo$sigDataInfo
+	} else if (is(DMRInfo, 'GRanges')) {
+		sigDMRInfo <- DMRInfo
+		sigDataInfo <- NULL
+	} else {
+		stop('DMRInfo should be a GRanges object or a list of GRanges objects (sigDMRInfo and sigDataInfo)!')
+	}
+	
+	## load human genome information and check overlap with known genes
+	if (is.character(annotationDatabase)) {
+		if (file.exists(annotationDatabase)) {
+			annotationDatabase <- loadFeatures(annotationDatabase)		
+		} else if (require(annotationDatabase, character.only=TRUE)) {
+			annotationDatabase <- get(annotationDatabase)
+		} else {
+			stop('Provided annotationDatabase does not exist!')
+		}
+	} 
+	
+	if (is(annotationDatabase, 'TranscriptDb')) {
+		## UCSC only includes reviewed genes!!!
+		tr <- transcripts(annotationDatabase, columns=c('gene_id', 'tx_id', 'tx_name'))		
+	} else if (is(annotationDatabase, 'GRanges')) {
+		tr <- annotationDatabase
+	} else {
+		stop('Wrong type of annotationDatabase! Please check help for more details.')
+	}
+
+	## filter the transcripts without matching gene ids
+	tr <- tr[elementLengths(values(tr)$gene_id) > 0]
+	names(tr) <- values(tr)$tx_id
+
+	if (is.character(CpGInfo)) {
+		CpG.grange <- import.bed(CpGInfo[1], asRangedData=FALSE)
+	} else if (is(CpGInfo, 'GRanges')) {
+		CpG.grange <- CpGInfo
+	} else if (is.null(CpGInfo) || is.na(CpGInfo)) {
+		CpG.grange <- NULL
+	} else {
+		stop('CpGInfo should be a bed file or a GRanges object!')
+	}
+	
+	## expand the transcript region
+	if (is(promoterRange, 'GRanges')) {
+		promoter <- promoterRange
+	} else {
+		promoter <- flank(tr, width=promoterRange, both=FALSE, start=TRUE)
+	}
+	
+	## create a GRange object and check overlap
+	if (!is.null(sigDMRInfo)) {
+		sigDMRInfo <- annotateGRanges(sigDMRInfo, annotationDatabase=tr, CpGInfo=CpG.grange, flankRange=flankRange, promoterRange=promoter, EntrezDB=EntrezDB)
+	}
+	
+	if (!is.null(sigDataInfo)) {
+		sigDataInfo <- annotateGRanges(sigDataInfo, annotationDatabase=tr, CpGInfo=CpG.grange, flankRange=flankRange, promoterRange=promoter, EntrezDB=EntrezDB)
+	}
+	
+	return(list(sigDMRInfo=sigDMRInfo, sigDataInfo=sigDataInfo))
+}
+
+
+export.DMRInfo	<- function(DMRInfo.ann, methyData=NULL, savePrefix='') {
+	
+	## output the DMR data
+	sigDataInfo <- as.data.frame(DMRInfo.ann$sigDataInfo)
+	sigProbe <- as.character(sigDataInfo$PROBEID)
+	if (!is.null(methyData)) {
+		sigDMRdataInfo <- cbind(sigDataInfo, exprs(methyData)[sigProbe, , drop=FALSE])
+	} else {
+		sigDMRdataInfo <- sigDataInfo
+	}
+	ord <- order(sigDMRdataInfo$seqnames, sigDMRdataInfo$start, sigDMRdataInfo$end, decreasing=FALSE)
+	sigDMRdataInfo <- sigDMRdataInfo[ord,]
+	
+	if (all(c('startWinIndex', 'endWinIndex') %in% colnames(sigDMRdataInfo))) {
+		numProbe <- sigDMRdataInfo[,'endWinIndex'] - sigDMRdataInfo[,'startWinIndex'] + 1
+		ind.start <- which(colnames(sigDMRdataInfo) == 'startWinIndex')
+		sigDMRdataInfo[,ind.start] <- numProbe
+		colnames(sigDMRdataInfo)[ind.start] <- 'numberOfProbe'
+		sigDMRdataInfo <- sigDMRdataInfo[,-which(colnames(sigDMRdataInfo) == 'endWinIndex')]
+	}
+	sigDMRdataInfo <- data.frame(CHROMOSOME=sigDMRdataInfo$seqnames, POSITION=sigDMRdataInfo$start, sigDMRdataInfo[,-c(1:5)])
+	## remove columns
+	rmCol <- c('isSignificant', 'p.value.adj', 'startLocation', 'endLocation')
+	sigDMRdataInfo <- sigDMRdataInfo[, !(colnames(sigDMRdataInfo) %in% rmCol)]
+	
+	write.csv(sigDMRdataInfo, file=paste('DMRdata_', savePrefix, '_', Sys.Date(), '.csv', sep=''), row.names=FALSE)
+
+	
+	## output the sigDMRInfo as a bed file
+	export(DMRInfo.ann$sigDMRInfo, paste('DMRInfo_', savePrefix, '_', Sys.Date(), '.bed', sep=''))
+	
+	## output as a csv file
+	sigDMRInfo <- as.data.frame(DMRInfo.ann$sigDMRInfo)
+	ord <- order(sigDMRInfo$seqnames, sigDMRInfo$start, sigDMRInfo$end, decreasing=FALSE)
+	sigDMRInfo <- sigDMRInfo[ord,]
+	if (all(c('startInd', 'endInd') %in% colnames(sigDMRInfo))) {
+		numProbe <- sigDMRInfo[,'endInd'] - sigDMRInfo[,'startInd'] + 1
+		ind.start <- which(colnames(sigDMRInfo) == 'startInd')
+		sigDMRInfo[,ind.start] <- numProbe
+		colnames(sigDMRInfo)[ind.start] <- 'numberOfProbe'
+		sigDMRInfo <- sigDMRInfo[,-which(colnames(sigDMRInfo) == 'endInd')]
+	}
+	sigDMRInfo <- data.frame(CHROMOSOME=sigDMRInfo$seqnames, sigDMRInfo[,-1])
+	## remove columns
+	rmCol <- c('width', 'strand', 'isSignificant', 'p.value.adj')
+	sigDMRInfo <- sigDMRInfo[, !(colnames(sigDMRInfo) %in% rmCol)]
+
+	write.csv(sigDMRInfo, file=paste('DMRInfo_', savePrefix, '_', Sys.Date(), '.csv', sep=''), row.names=FALSE)
+	
+
+	return(invisible(TRUE))
+}
+
+
+## -----------------------------------------------------
+## other internal functions
+# detectResult is the return of detectDMR
+.identifySigProbe <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, fdrTh=pValueTh, diffTh=log2(1.5)) {
+
+	if (!is.numeric(pValueTh) && !is.na(pValueTh)) stop("pValueTh needs to be numeric.	Use 1 or NA if you want to turn it off.")
+	if (!is.numeric(diffTh) && !is.na(pValueTh)) stop("diffTh needs to be numeric.	Use 0 or NA if you want to turn it off.")
+	if (is.na(pValueTh)) pValueTh <- 1
+	if (is.na(diffTh)) diffTh <- 0
+	annotateColumn <- c("PROBEID","CHROMOSOME","POSITION")
+	
+	if (!all(annotateColumn %in% names(detectResult)))
+		stop(" PROBEID, CHROMOSOME and POSITION are required columns!")
+	
+	annotateInd <- which(names(detectResult) %in% annotateColumn)
+	# multiple testing correction
+	p.val.cols <- grep("^p\\.",colnames(detectResult))
+	p.val.adj.cols <- grep("p\\.adjust", colnames(detectResult))
+	p.val.cols <- p.val.cols[!(p.val.cols %in% p.val.adj.cols)]
+	if (length(p.val.cols) > 1) {
+		p.value <- apply(detectResult[,p.val.cols], 1, min, na.rm=TRUE)
+	} else {
+		p.value <- detectResult[,p.val.cols]
+	}
+	p.value.adj <- p.adjust(p.value, method=p.adjust.method)
+	
+	if ('difference' %in% colnames(detectResult)) {
+		max.diff <- detectResult[,'difference']
+	} else {
+		differences <- detectResult[, -c(annotateInd, p.val.cols, p.val.adj.cols, which(colnames(detectResult) %in% c("startWinIndex", "endWinIndex"))), drop=FALSE]
+		max.diff <- rowMax(abs(as.matrix(differences)))
+		max.diff <- max.diff * sign(differences[,1])
+	}
+	isSignificant <- rep(TRUE, length(max.diff))
+	if (pValueTh < 1) isSignificant <- isSignificant & (p.value < pValueTh)
+	if (p.adjust.method != 'none' && fdrTh < 1) isSignificant <- isSignificant & (p.value.adj < fdrTh)
+	if (diffTh > 0) isSignificant <- isSignificant & (abs(max.diff) > diffTh)
+
+	detectResult <- data.frame(detectResult, p.value.adj=p.value.adj, difference=max.diff, isSignificant=isSignificant)
+	
+	return(detectResult)
+}
+
+
+# This helper function sets up the positions for the sliding test based on the positions.
+# Returns a list of index positions that fit within the sliding window with width winSize
+.setupSlidingTests <- function(pos_data, winSize=250) {
+	
+	len <- length(pos_data)
+	probesetList <- as.vector(seq(pos_data), mode='list')
+	diff.pos.left <- c(Inf, diff(pos_data))
+	growingHeight.left <- diff.pos.left
+	growingStatus.left <- which(growingHeight.left <= winSize)
+	diff.pos.right <- c(diff.pos.left[-1], Inf)
+	growingHeight.right <- diff.pos.right
+	growingStatus.right <- which(growingHeight.right <= winSize)
+	iter <- 1
+	## growing in both left and right directions until it reaches the half-window-size winSize
+	while (length(c(growingStatus.left, growingStatus.right)) > 0) {
+
+		growingHeight.left[-(1:iter)] <- growingHeight.left[-(1:iter)] + diff.pos.left[1:(len - iter)]		
+		growingHeight.right[1:(len - iter)] <- growingHeight.right[1:(len - iter)] + diff.pos.right[-(1:iter)]
+		
+		## in left direction
+		if (length(growingStatus.left) > 0) {
+			probesetList[growingStatus.left] <- lapply(1:length(growingStatus.left), function(i)	 
+				c(growingStatus.left[i] - iter, probesetList[[growingStatus.left[i]]]))
+		}
+		
+		## in right direction
+		if (length(growingStatus.right) > 0) {
+			probesetList[growingStatus.right] <- lapply(1:length(growingStatus.right), function(i) c(probesetList[[growingStatus.right[i]]], growingStatus.right[i] + iter))
+		}
+		growingStatus.left <- which(growingHeight.left <= winSize)
+		growingStatus.right <- which(growingHeight.right <= winSize)	
+		
+		iter <- iter + 1
+	}
+
+	return(probesetList)
+}
+
+probe2gene <- function(probe, lib="org.Hs.eg.db", simplify=TRUE, collapse=FALSE) {
+	if (length(probe) == 0) return(NULL)
+	if (!require(lib, character.only=TRUE)) stop(paste(lib, 'should be installed first!'))
+	if (length(grep('.eg.db', lib)) > 0) {
+		gene <- getEntrezAnnotation(probe, lib, from='eg', to='symbol')
+		if (collapse) {
+			gene <- sapply(gene,	paste, collapse=';')
+		}				
+	} else {
+		llib <- paste(gsub('\\.db$', '', lib), 'SYMBOL', sep='')
+		mapWithAllProbes <- do.call('toggleProbes', list(x=as.name(llib), value="all"))
+		gene <- AnnotationDbi::mget(probe, mapWithAllProbes, ifnotfound=NA)
+		if (collapse) {
+			gene <- sapply(gene, paste, collapse=';')
+		} else {
+			if (simplify) gene <- sapply(gene, function(x) x[1])
+		}
+	}
+	return(gene)
+}
+
+
+getEntrezAnnotation <- function(ll=NULL, lib=NULL, from='eg', to='symbol', species=c('human', 'rat', 'mouse', 'yeast', 'fly'), collapse=FALSE) {
+	
+	from <- toupper(from); to <- toupper(to)
+	# from: 'eg', 'accnum', 'alias', 'chr', chrlengths', 'chrloc', 'enzyme', 'genename', 'go', 'map', 'mapcounts', 
+	#	'path', 'pfam', 'pmid', 'prosite', 'refseq', 'symbol', 'unigene', 
+	species <- match.arg(species)
+	
+	if (is.null(lib)) {
+		lib = switch(species,
+			'rat'='org.Rn.eg.db',
+			'human'='org.Hs.eg.db',
+			'mouse'='org.Mm.eg.db',
+			'yeast'='org.Sc.eg.db',
+			'fly'='org.Dm.eg.db'
+			 )
+	}
+	if (!require(lib, character.only=TRUE)) {
+		stop(paste('Package', lib, 'cannot be loaded!'))
+	}
+
+	ll.input <- ll
+	na.ind <- which(is.na(ll) | ll == "")
+	if (length(na.ind) > 0) {
+		ll <- ll[-na.ind]
+	}
+		
+	if (length(to) > 1) {
+		allMapping <- NULL
+		for (to.i in to) {
+			mapping.i <- getEntrezAnnotation(ll, lib, from, to.i, species, collapse=TRUE)
+			allMapping <- cbind(allMapping, mapping.i)
+		}
+		colnames(allMapping) <- to
+		rownames(allMapping) <- ll
+		return(allMapping)
+	}
+	libName <- sub('.db', '', lib)
+	if (from == 'EG') {
+		map <- paste(libName, to, sep='')		
+	} else {
+		map <- paste(libName, from, '2', to, sep='')		
+		if (!exists(map)) {
+			if (to == 'EG') {
+				map <- paste(libName, from, sep='')
+			}
+			if (!exists(map)) stop(paste('Cannot find', map, 'in', lib, '!'))
+		}
+	}
+
+	## 
+	if (!is.null(ll)) {
+		map <- AnnotationDbi::mget(ll, get(map), ifnotfound=NA)
+	} else {
+		map <- as.list(get(map))
+	}
+	if (to == 'EG' & !exists(paste(libName, from, '2', to, sep=''))) {
+		len <- sapply(map, length)		
+		map <- tapply(rep(names(map), len), unlist(map),	function(x) unique(x))
+	}
+	
+	if (length(na.ind) > 0) {
+		map.out <- rep(NA, length(ll.input))
+		map.out[-na.ind] <- map
+	} else {
+		map.out <- map
+	}
+
+	if (collapse) {
+		map.out <- sapply(map.out,	paste, collapse=';')
+	}
+	attr(map.out, 'lib') <- lib
+	return(map.out)
+}
+
+
+
+

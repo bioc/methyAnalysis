@@ -1,0 +1,45 @@
+import(methods)
+importClassesFrom(Biobase, AnnotatedDataFrame, AssayData, eSet, ExpressionSet)
+importMethodsFrom(Biobase, annotation, "annotation<-", 
+		assayData, "assayData<-", 
+		featureData, "featureData<-", 
+		featureNames, "featureNames<-",
+		pData, "pData<-",
+		exprs, "exprs<-",
+		sampleNames, "sampleNames<-",
+		coerce, combine, dim, initialize, notes, 
+                storageMode, show, "[", "[[", "$")
+
+importClassesFrom(methylumi, MethyLumiM)
+
+importFrom(lumi, getChrInfo, getHistory, estimateBeta, m2beta, addAnnotationInfo)
+importMethodsFrom(methylumi, methylated, unmethylated, "detection", "methylated<-", "unmethylated<-", "detection<-", "betas", "betas<-",  combine, "[", "dataType", "dataType<-")
+
+importFrom(annotate, lookUp, getSYMBOL)
+importFrom(AnnotationDbi, get, mget)
+importFrom(genefilter, rowttests)
+importFrom(biomaRt, listAttributes, getBM)
+
+# GenoSet related classes and functions
+importClassesFrom(genoset, GenoSet)
+importClassesFrom(IRanges, IRanges, RangedData)
+importClassesFrom(GenomicRanges, GRanges)
+importMethodsFrom(IRanges, space, start, end, width, universe, values, "values<-", unlist)
+importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, "seqnames<-", "seqlevels<-", match, as.data.frame)
+importMethodsFrom(genoset, locData, "locData<-", chrNames, chrInfo)
+importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
+importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts, loadFeatures)
+importFrom(IRanges, IRanges, RangedData)
+importFrom(genoset, GenoSet)
+importFrom(GenomicRanges, GRanges)
+importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, BiomartGeneRegionTrack, 
+	UcscTrack, DataTrack, stacks, plotTracks, coords)
+
+
+exportClasses(MethyGenoSet)
+exportMethods(exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-", "unmethylated<-", "detection<-", getHistory, combine, "[", coerce, locData, "locData<-", chrNames)
+
+export(annotateDMRInfo, annotateGRanges, detectDMR.slideWin, export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, heatmapByChromosome, plotMethylationHeatmapByGene, plotTracksWithDataTrackInfo, checkChrName
+)
+
+
