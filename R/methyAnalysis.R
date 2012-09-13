@@ -368,8 +368,8 @@ identifySigDMR <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, f
 
 
 ## Get continuous region from discrete probe measurements
-# getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFun=mean, maxGap=2000, minGap=100, as.GRanges=TRUE) {
-getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFun=mean, maxGap=2000, minGap=100) {
+# getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=mean, maxGap=2000, minGap=100, as.GRanges=TRUE) {
+getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=c(mean=mean), maxGap=2000, minGap=100) {
 
 	if (is.data.frame(detectResult)) {
 		if (!all(c('CHROMOSOME', 'POSITION', 'status') %in% names(detectResult))) {
@@ -399,9 +399,10 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFun=mean, 
 		if (!all(scoreColumns %in% colnames(detectResult))) {
 			stop('Some "scoreColumns" does not match "detectResult"!')
 		}
-		if (length(scoreFun) < length(scoreColumns)) {
-			scoreFun <- rep(scoreFun, length(scoreColumns))
-		}
+		if (is.null(scoreFuns)) scoreFuns <- mean
+		# if (length(scoreFuns) < length(scoreColumns)) {
+		# 	scoreFuns <- rep(scoreFuns, length(scoreColumns))
+		# }
 	}
 	
 	## split data by Chromosome 
@@ -474,12 +475,19 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFun=mean, 
 	if (!is.null(scoreColumns)) {
 		detectValue <- as.matrix(as(values(detectResult.g), 'data.frame')[,scoreColumns])
 		dmr2score <- lapply(dmr2ind, function(ind.i) {
-			colMeans(detectValue[ind.i,,drop=FALSE])
+			value.i <- NULL
+			for (fun.i in scoreFuns) {
+				value.i <- cbind(value.i, apply(detectValue[ind.i,,drop=FALSE], 2, fun.i))
+			}
+			return(value.i)
 		})
+		
 		dmr2score <- do.call('rbind', dmr2score)
-		avg.score <- matrix(NA, nrow=length(sigDMRInfo.r), ncol=length(scoreColumns))
-		colnames(avg.score) <- scoreColumns
-
+		rownames(dmr2score) <- names(dmr2ind)
+		avg.score <- matrix(NA, nrow=length(sigDMRInfo.r), ncol=length(scoreColumns) * length(scoreFuns))
+		scoreFunName <- names(scoreFuns)
+		if (is.null(scoreFunName)) scoreFunName <- paste('Fun', 1:length(scoreFuns), sep='')
+		colnames(avg.score) <- unlist(lapply(scoreFunName, paste, scoreColumns, sep='_'))
 		avg.score[as.numeric(rownames(dmr2score)),] <- dmr2score
 		dmrInfo <- data.frame(dmrInfo, as.data.frame(avg.score))
 	}
