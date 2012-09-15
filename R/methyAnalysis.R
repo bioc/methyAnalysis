@@ -340,8 +340,9 @@ identifySigDMR <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, f
 
 	## ---------------------------------------
 	## identify the boundary of DMR (return a GRanges object)
+	scoreFuns <- list(p.value=c(min=min), difference=c(max=function(x) x[which.max(abs(x))]), p.adjust=c(min=min))
 	sigDMRInfo.g <- getContinuousRegion(detectResult, scoreColumns=c('p.value', 'difference', 'p.adjust', classMeanCol), 
-							 scoreFun=c(min, function(x) x[which.max(abs(x))], min), maxGap=maxGap, minGap=minGap)
+							 scoreFuns=scoreFuns, maxGap=maxGap, minGap=minGap)
 
 	sigDMRInfo <- as(sigDMRInfo.g, 'data.frame')
 	rownames(sigDMRInfo) <- names(sigDMRInfo.g)
@@ -399,7 +400,7 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=c(mea
 		if (!all(scoreColumns %in% colnames(detectResult))) {
 			stop('Some "scoreColumns" does not match "detectResult"!')
 		}
-		if (is.null(scoreFuns)) scoreFuns <- mean
+		if (is.null(scoreFuns)) scoreFuns <- c(mean=mean)
 		# if (length(scoreFuns) < length(scoreColumns)) {
 		# 	scoreFuns <- rep(scoreFuns, length(scoreColumns))
 		# }
@@ -473,17 +474,33 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=c(mea
 
 	## calculate the mean score of each region	
 	if (!is.null(scoreColumns)) {
+		if (is.list(scoreFuns)) {
+			if (!all(names(scoreFuns) %in% scoreColumns))
+				stop('The names of scoreFuns list should be from scoreColumns!')
+		}
+
 		detectValue <- as.matrix(as(values(detectResult.g), 'data.frame')[,scoreColumns])
 		dmr2score <- lapply(dmr2ind, function(ind.i) {
 			value.i <- NULL
-			for (fun.i in scoreFuns) {
-				value.i <- cbind(value.i, apply(detectValue[ind.i,,drop=FALSE], 2, fun.i))
+			## If scoreFuns is a named list, then the named scoreColumns will be treated differently
+			if (is.list(scoreFuns)) {
+				for (scoreCol.j in scoreColumns) {
+					scoreFuns.j <- scoreFuns[[scoreCol.j]]
+					if (is.null(scoreFuns.j)) scoreFuns.j <- c(mean=mean)
+					value.ij <- sapply(scoreFuns.j, function(x) x(detectValue[ind.i, scoreCol.j]))
+					names(value.ij) <- paste(names(scoreFuns.j), scoreCol.j, sep='_')
+					value.i <- c(value.i, value.ij)
+				}
+			} else {
+				for (fun.i in scoreFuns) {
+					value.i <- cbind(value.i, apply(detectValue[ind.i,,drop=FALSE], 2, fun.i))
+				}
 			}
 			return(value.i)
 		})
 		
 		dmr2score <- do.call('rbind', dmr2score)
-		rownames(dmr2score) <- names(dmr2ind)
+		rownames(dmr2score) <- names(dmr2ind) 
 		avg.score <- matrix(NA, nrow=length(sigDMRInfo.r), ncol=length(scoreColumns) * length(scoreFuns))
 		scoreFunName <- names(scoreFuns)
 		if (is.null(scoreFunName)) scoreFunName <- paste('Fun', 1:length(scoreFuns), sep='')
@@ -497,7 +514,7 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=c(mea
 }
 
 
-annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, flankRange=0, promoterRange=2000, EntrezDB='org.Hs.eg.db') {
+annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALSE, flankRange=0, promoterRange=2000, EntrezDB='org.Hs.eg.db') {
 	
 	if (!is(grange, 'GRanges')) {
 		stop('grange should be a GRanges object!')
@@ -514,7 +531,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, flankRange
 			stop('Provided annotationDatabase does not exist!')
 		}
 	} 
-	
+
 	if (is(annotationDatabase, 'TranscriptDb')) {
 		tr <- transcripts(annotationDatabase, columns=c('gene_id', 'tx_id', 'tx_name'))		
 	} else if (is(annotationDatabase, 'GRanges')) {
@@ -522,11 +539,22 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, flankRange
 	} else {
 		stop('Wrong type of annotationDatabase! Please check help for more details.')
 	}
+	tr <- checkChrName(tr, addChr=TRUE)	
 
-	## filter the transcripts without matching gene ids
-	tr <- tr[elementLengths(values(tr)$gene_id) > 0]
-	names(tr) <- values(tr)$tx_id
-	tr <- checkChrName(tr, addChr=TRUE)
+	if (is.logical(exons)) {
+		if (exons && is(annotationDatabase, 'TranscriptDb')) {
+			exons <- exons(annotationDatabase, columns=c('exon_id', 'exon_name', 'exon_rank', 'tx_name'))
+		} else {
+			exons <- NULL
+		}
+	} else if (!is(exons, 'GRanges')) {
+		stop('"exons" should be a logical or GRanges object!')
+	}
+	
+	# ## filter the transcripts without matching gene ids
+	# tr <- tr[elementLengths(values(tr)$gene_id) > 0]
+	# names(tr) <- values(tr)$tx_id
+	# tr <- checkChrName(tr, addChr=TRUE)
 
 	if (is.character(CpGInfo)) {
 		CpG.grange <- import.bed(CpGInfo[1], asRangedData=FALSE)
@@ -538,14 +566,6 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, flankRange
 		stop('CpGInfo should be a bed file or a GRanges object!')
 	}
 	if (!is.null(CpGInfo)) CpGInfo <- checkChrName(CpGInfo, addChr=TRUE)
-	
-	## expand the transcript region
-	if (is(promoterRange, 'GRanges')) {
-		promoter <- promoterRange
-		promoter <- checkChrName(promoter, addChr=TRUE)
-	} else {
-		promoter <- flank(tr, width=promoterRange, both=FALSE, start=TRUE)
-	}
 
 	## expand the interested GRanges
 	if (flankRange != 0) {
@@ -553,33 +573,96 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, flankRange
 	} else {
 		grange.ext <- grange
 	}
-	
-	## ----------------------------------------------------------
-	## find the overlapping with gene body
+
 	if (is.null(names(grange.ext))) {
 		values(grange.ext)$id <- make.unique(paste(seqnames(grange), start(grange), end(grange), sep="_"))
 	} else {
 		values(grange.ext)$id <- names(grange.ext)
 	}
-	OL.gene <- findOverlaps(grange.ext, tr)	
-	dmr2gene <- cbind(values(grange.ext)$id[queryHits(OL.gene)], 
-		unlist(values(tr)$gene_id)[subjectHits(OL.gene)])
-	dupInd <- duplicated(paste(dmr2gene[,1], dmr2gene[,2], sep='_'))
-	if (any(dupInd)) dmr2gene <- dmr2gene[!dupInd,,drop=FALSE]
-	dmr2gene.list <- split(dmr2gene[,2], as.factor(dmr2gene[,1]))
-	dmr2gene <- sapply(dmr2gene.list, function(x) paste(probe2gene(unique(x), lib=EntrezDB, collapse=TRUE), collapse=';'))
-	dmr2ll <- sapply(dmr2gene.list, function(x) paste(unique(x), collapse=';'))
 
 	## ----------------------------------------------------------
-	## find the overlapping with promoters
-	OL.promoter <- findOverlaps(grange.ext, promoter)	
-	dmr2promoter <- cbind(values(grange.ext)$id[queryHits(OL.promoter)], 
-		unlist(values(promoter)$gene_id)[subjectHits(OL.promoter)])
-	dupInd <- duplicated(paste(dmr2promoter[,1], dmr2promoter[,2], sep='_'))
-	if (any(dupInd)) dmr2promoter <- dmr2promoter[!dupInd,,drop=FALSE]
-	dmr2promoter.list <- split(dmr2promoter[,2], as.factor(dmr2promoter[,1]))
-	dmr2promoter <- sapply(dmr2promoter.list, function(x) paste(probe2gene(unique(x), lib=EntrezDB, collapse=TRUE), collapse=', '))
-	dmr2ll.promoter <- sapply(dmr2promoter.list, function(x) paste(unique(x), collapse=';'))
+	## find the overlapping with gene body
+	if (is.null(values(grange.ext)$Transcript)) {
+		OL.gene <- findOverlaps(grange.ext, tr)	
+		dmr2gene <- cbind(values(grange.ext)$id[queryHits(OL.gene)], 
+			unlist(values(tr)$gene_id)[subjectHits(OL.gene)])
+		dupInd <- duplicated(paste(dmr2gene[,1], dmr2gene[,2], sep='_'))
+		if (any(dupInd)) dmr2gene <- dmr2gene[!dupInd,,drop=FALSE]
+		dmr2gene.list <- split(dmr2gene[,2], as.factor(dmr2gene[,1]))
+		dmr2gene <- sapply(dmr2gene.list, function(x) {
+			x <- sub('GeneID:', '', unique(x), ignore.case=TRUE)
+			paste(probe2gene(x, lib=EntrezDB, collapse=TRUE), collapse=';')
+		})
+		dmr2ll <- sapply(dmr2gene.list, function(x) paste(unique(x), collapse=';'))
+
+		mapInfo <- matrix("", nrow=length(grange.ext), ncol=2)
+		colnames(mapInfo) <- c("EntrezID", "GeneSymbol")
+		rownames(mapInfo) <- values(grange.ext)$id
+		mapInfo[names(dmr2ll), 'EntrezID'] <- dmr2ll
+		mapInfo[names(dmr2gene), 'GeneSymbol'] <- dmr2gene
+		values(grange) <- data.frame(as(values(grange), 'data.frame'), mapInfo)		
+	}
+
+	
+	## ----------------------------------------------------------
+	## Find the nearest TSS and related Transcript
+	tss <- flank(tr, width=-1, start=TRUE)
+	nearestInd <- nearest(grange, tss)
+	sapply(1:length(grange), function(i) {
+		 distanceToNearest(ranges(grange[i]), ranges(tss[nearestInd[i]]))
+	})
+	start2tss <- start(grange) - start(tss[nearestInd]) 
+	end2tss <- end(grange) - end(tss[nearestInd]) 
+	dist2tss <- pmin(abs(start2tss), abs(end2tss)) * sign(start2tss)
+	dist2tss[sign(start2tss) * sign(end2tss) < 0] <- 0
+	dist2tss[as.vector(strand(tss[nearestInd])) == '-'] <- dist2tss[as.vector(strand(tss[nearestInd])) == '-'] * -1
+	values(grange)$nearestTx <- values(tss[nearestInd])$tx_name
+	values(grange)$distance2TSS <- dist2tss
+	
+	## mark promoter based on distance to TSS
+	promoterStatus <- rep(FALSE, length(dist2tss))
+	promoterStatus[dist2tss < 0 & abs(dist2tss) <= promoterRange] <- TRUE
+	values(grange)$PROMOTER <- promoterStatus
+	
+	## ----------------------------------------------------------
+	## find the overlapping with exons
+	if (is(exons, 'GRanges')) {
+		exons <- checkChrName(exons, addChr=TRUE)	
+		OL.exons <- findOverlaps(grange.ext, exons)	
+		hitExons <- exons[subjectHits(OL.exons)]
+		## combine tx_name and exon_rank to get a new exon name
+		if (all(is.na(values(hitExons)$exon_name))) {
+			ll <- sapply(values(hitExons)$tx_name, length)
+			exon_id <- values(hitExons)$exon_id
+			exon_id <- rep(exon_id, ll)
+			tx_name <- unlist(values(hitExons)$tx_name)
+			exon_rank <- unlist(values(hitExons)$exon_rank)
+			exon_name <- paste(tx_name, exon_rank, sep='_')
+			exon_name <- split(exon_name, exon_id)
+			values(hitExons)$exon_name <- sapply(exon_name, paste, collapse=',')
+		}
+		dmr2exons <- cbind(values(grange.ext)$id[queryHits(OL.exons)], 
+			values(hitExons)$exon_name)
+			
+		dupInd <- duplicated(paste(dmr2exons[,1], dmr2exons[,2], sep='_'))
+		if (any(dupInd)) dmr2exons <- dmr2exons[!dupInd,,drop=FALSE]
+		dmr2exons.list <- split(dmr2exons[,2], as.factor(dmr2exons[,1]))
+		dmr2exons.flat <- sapply(dmr2exons.list, function(x) paste(unique(x), collapse=';'))
+
+		mapInfo <- matrix("", nrow=length(grange.ext), ncol=2)
+		colnames(mapInfo) <- c("Exons", "Exon1")
+		rownames(mapInfo) <- values(grange.ext)$id
+		mapInfo[names(dmr2exons.flat), 'Exons'] <- dmr2exons.flat
+
+		exon1_status <- sapply(values(hitExons)$exon_rank, function(x) any(x== 1))
+		if (any(exon1_status)) {
+			id_exon1 <- dmr2exons[exon1_status,1]
+			tx_exon1 <- sapply(values(hitExons)$tx_name[exon1_status], head, 1)
+			mapInfo[id_exon1, 'Exon1'] <- tx_exon1
+		}
+		
+		values(grange) <- data.frame(as(values(grange), 'data.frame'), mapInfo) 		
+	}	
 	
 	## ----------------------------------------------------------
 	## check overlap with CpG islands
@@ -587,21 +670,12 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, flankRange
 		OL.CpG <- findOverlaps(grange.ext, CpG.grange)	
 		dmr2CpG <- cbind(values(grange.ext)$id[queryHits(OL.CpG)], 
 			unlist(values(CpG.grange)$name)[subjectHits(OL.CpG)])		
-	} else {
-		dmr2CpG <- NULL
+
+		mapInfo <- rep('', length(grange.ext))
+		names(mapInfo) <- values(grange.ext)$id
+		mapInfo[dmr2CpG[,1]] <- dmr2CpG[,2]
+		values(grange) <- data.frame(as(values(grange), 'data.frame'), CpG_island=mapInfo) 		
 	}
-
-	mapInfo <- matrix("", nrow=length(grange.ext), ncol=5)
-	colnames(mapInfo) <- c("EntrezID", "Genes", "promoter_EntrezID", "promoter_Genes", 'CpG_island')
-	rownames(mapInfo) <- values(grange.ext)$id
-	mapInfo[names(dmr2ll), 'EntrezID'] <- dmr2ll
-	mapInfo[names(dmr2gene), 'Genes'] <- dmr2gene
-	mapInfo[names(dmr2ll.promoter), 'promoter_EntrezID'] <- dmr2ll.promoter
-	mapInfo[names(dmr2promoter), 'promoter_Genes'] <- dmr2promoter
-	if (!is.null(dmr2CpG))
-		mapInfo[dmr2CpG[,1], 'CpG_island'] <- dmr2CpG[,2]
-
-	values(grange) <- data.frame(as(values(grange), 'data.frame'), mapInfo) 		
 	
 	return(grange)
 }
@@ -655,19 +729,13 @@ annotateDMRInfo <- function(DMRInfo, annotationDatabase, CpGInfo=NULL, flankRang
 	}
 	
 	## expand the transcript region
-	if (is(promoterRange, 'GRanges')) {
-		promoter <- promoterRange
-	} else {
-		promoter <- flank(tr, width=promoterRange, both=FALSE, start=TRUE)
-	}
-	
 	## create a GRange object and check overlap
 	if (!is.null(sigDMRInfo)) {
-		sigDMRInfo <- annotateGRanges(sigDMRInfo, annotationDatabase=tr, CpGInfo=CpG.grange, flankRange=flankRange, promoterRange=promoter, EntrezDB=EntrezDB)
+		sigDMRInfo <- annotateGRanges(sigDMRInfo, annotationDatabase=tr, CpGInfo=CpG.grange, flankRange=flankRange, promoterRange=promoterRange, EntrezDB=EntrezDB)
 	}
 	
 	if (!is.null(sigDataInfo)) {
-		sigDataInfo <- annotateGRanges(sigDataInfo, annotationDatabase=tr, CpGInfo=CpG.grange, flankRange=flankRange, promoterRange=promoter, EntrezDB=EntrezDB)
+		sigDataInfo <- annotateGRanges(sigDataInfo, annotationDatabase=tr, CpGInfo=CpG.grange, flankRange=flankRange, promoterRange=promoterRange, EntrezDB=EntrezDB)
 	}
 	
 	return(list(sigDMRInfo=sigDMRInfo, sigDataInfo=sigDataInfo))

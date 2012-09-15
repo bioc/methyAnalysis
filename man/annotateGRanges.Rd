@@ -8,7 +8,7 @@ Annotate a GRanges object
 Annotate a GRanges object based on a transcription database
 }
 \usage{
-annotateGRanges(grange, annotationDatabase, CpGInfo = NULL, flankRange = 0, promoterRange = 2000, EntrezDB = "org.Hs.eg.db")
+annotateGRanges(grange, annotationDatabase, CpGInfo = NULL, exons = FALSE, flankRange = 0, promoterRange = 2000, EntrezDB = "org.Hs.eg.db")
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -20,6 +20,9 @@ Annotation database: a TranscriptDb package, TranscriptDb object or GRanges obje
 }
   \item{CpGInfo}{
 A Bed file or GRanges object, which keeps the CpG-island information
+}
+  \item{exons}{
+Whether to annotate at the exon level. exons can be either TRUE/FALSE or a GRanges object represent the exon annotation.
 }
   \item{flankRange}{
 The flank range to be added to the input GRanges object

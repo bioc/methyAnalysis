@@ -7,7 +7,7 @@ Get continuous chromosome region by merging nearby or overlapping regions
 Get continuous chromosome region by merging nearby or overlapping regions 
 }
 \usage{
-getContinuousRegion(detectResult, scoreColumns = NULL, scoreFun = c(mean=mean), maxGap = 2000, minGap = 100)
+getContinuousRegion(detectResult, scoreColumns = NULL, scoreFuns = c(mean=mean), maxGap = 2000, minGap = 100)
 }
 \arguments{
   \item{detectResult}{
@@ -16,7 +16,7 @@ A GRanges object (with "status" column) or a data.frame with "CHROMOSOME", "POSI
   \item{scoreColumns}{
 The numeric score columns to be summarized in DMR
 }
-  \item{scoreFun}{
+  \item{scoreFuns}{
 A named vector of summarizing functions. The vector names will be used in the output columns
 }
   \item{maxGap}{
