@@ -487,6 +487,7 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=c(mea
 		}
 
 		detectValue <- as.matrix(as(values(detectResult.g), 'data.frame'))[,scoreColumns, drop=FALSE]
+		detectValue <- matrix(as.numeric(detectValue), nrow=nrow(detectValue), ncol=ncol(detectValue), dimnames=dimnames(detectValue))
 		dmr2score <- lapply(dmr2ind, function(ind.i) {
 			value.i <- NULL
 			## If scoreFuns is a named list, then the named scoreColumns will be treated differently
