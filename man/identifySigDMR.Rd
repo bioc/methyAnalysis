@@ -11,7 +11,7 @@ identifySigDMR(detectResult, p.adjust.method = "fdr", pValueTh = 0.01, fdrTh = p
 }
 \arguments{
   \item{detectResult}{
-A GRanges object or a data.frame with "CHROMOSOME" and "POSITION" columns
+A GRanges object or a data.frame with "PROBEID", "CHROMOSOME" and "POSITION" columns
 }
   \item{p.adjust.method}{
 p.value FDR adjust method

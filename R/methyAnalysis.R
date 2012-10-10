@@ -279,16 +279,16 @@ identifySigDMR <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, f
 		detectResult <- data.frame(CHROMOSOME=as.character(seqnames(detectResult)), POSITION=start(detectResult), as(values(detectResult), 'data.frame'))
 		rownames(detectResult) <- names(detectResult.g)
 	} else if (is(detectResult, 'data.frame')) {
-		if (!all(c("PROBEID","CHROMOSOME","startLocation", "endLocation") %in% names(detectResult)))
-			stop(" PROBEID, CHROMOSOME, startLocation and endLocation are required columns in the detectResult object!")
+		if (!all(c("PROBEID","CHROMOSOME","POSITION") %in% names(detectResult)))
+			stop(" PROBEID, CHROMOSOME and POSITION are required columns in the detectResult object!")
 		# remove those probes lack of position information
 		rmInd <- which(is.na(detectResult$POSITION))
 		if (length(rmInd) > 0) {
 			detectResult <- detectResult[-rmInd,]
 		}
 		## convert it as a GRanges object
-		tmp <- with(detectResult, GRanges(seqnames=CHROMOSOME, ranges=IRanges(start=startLocation, end=endLocation), strand='*'))
-		rmInd <- which(colnames(detectResult) %in% c('CHROMOSOME', 'startLocation', 'endLocation', 'width'))
+		tmp <- with(detectResult, GRanges(seqnames=CHROMOSOME, ranges=IRanges(start=POSITION, end=POSITION), strand='*'))
+		rmInd <- which(colnames(detectResult) %in% c('CHROMOSOME', 'POSITION', 'END', 'width'))
 		values(tmp) <- detectResult[,-rmInd, drop=FALSE]
 		detectResult.g <- tmp
 		names(detectResult.g) <- rownames(detectResult)
@@ -341,7 +341,14 @@ identifySigDMR <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, f
 	## ---------------------------------------
 	## identify the boundary of DMR (return a GRanges object)
 	scoreFuns <- list(p.value=c(min=min), difference=c(max=function(x) x[which.max(abs(x))]), p.adjust=c(min=min))
-	sigDMRInfo.g <- getContinuousRegion(detectResult, scoreColumns=c('p.value', 'difference', 'p.adjust', classMeanCol), 
+	scoreColumns <- c('p.value', 'difference', 'p.adjust', classMeanCol)
+	if (is.data.frame(detectResult)) {
+		scoreColumns <- scoreColumns[scoreColumns %in% names(detectResult)]
+	} else {
+		scoreColumns <- scoreColumns[scoreColumns %in% names(values(detectResult))]
+	}
+	scoreFuns <- scoreFuns[names(scoreFuns) %in% scoreColumns]
+	sigDMRInfo.g <- getContinuousRegion(detectResult, scoreColumns=scoreColumns, 
 							 scoreFuns=scoreFuns, maxGap=maxGap, minGap=minGap)
 
 	sigDMRInfo <- as(sigDMRInfo.g, 'data.frame')
@@ -359,7 +366,7 @@ identifySigDMR <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, f
 		dmrMean <- sigDMRInfo[, classMeanCol]	
 		sigDMRInfo.g <- sigDMRInfo.g[dmrMean[,1] * dmrMean[,2] < 0]
 	}
-		
+
 	## only keep the sigDataInfo which overlaps with sigDMRInfo
 	sigDataInfo.g <- detectResult.g[sigProbe]
 	sigDataInfo.g <- sigDataInfo.g[!is.na(match(sigDataInfo.g, sigDMRInfo.g))]
@@ -474,37 +481,49 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=c(mea
 
 	## calculate the mean score of each region	
 	if (!is.null(scoreColumns)) {
-		if (is.list(scoreFuns)) {
+		if (!all(sapply(scoreFuns, is.function))) {
 			if (!all(names(scoreFuns) %in% scoreColumns))
 				stop('The names of scoreFuns list should be from scoreColumns!')
 		}
 
-		detectValue <- as.matrix(as(values(detectResult.g), 'data.frame')[,scoreColumns])
+		detectValue <- as.matrix(as(values(detectResult.g), 'data.frame'))[,scoreColumns, drop=FALSE]
 		dmr2score <- lapply(dmr2ind, function(ind.i) {
 			value.i <- NULL
 			## If scoreFuns is a named list, then the named scoreColumns will be treated differently
-			if (is.list(scoreFuns)) {
-				for (scoreCol.j in scoreColumns) {
-					scoreFuns.j <- scoreFuns[[scoreCol.j]]
-					if (is.null(scoreFuns.j)) scoreFuns.j <- c(mean=mean)
-					value.ij <- sapply(scoreFuns.j, function(x) x(detectValue[ind.i, scoreCol.j]))
-					names(value.ij) <- paste(names(scoreFuns.j), scoreCol.j, sep='_')
-					value.i <- c(value.i, value.ij)
-				}
-			} else {
+			if (all(sapply(scoreFuns, is.function))) {
 				for (fun.i in scoreFuns) {
 					value.i <- cbind(value.i, apply(detectValue[ind.i,,drop=FALSE], 2, fun.i))
 				}
-			}
+			} else {
+				for (scoreCol.j in scoreColumns) {
+					scoreFuns.j <- scoreFuns[[scoreCol.j]]
+					if (is.null(scoreFuns.j)) {
+						value.ij <- mean(detectValue[ind.i, scoreCol.j])
+						if (!grepl('^mean', scoreCol.j)) {
+							names(value.ij) <- paste('mean', scoreCol.j, sep='_')
+						} else {
+							names(value.ij) <- scoreCol.j
+						}
+					} else {
+						value.ij <- sapply(scoreFuns.j, function(x) x(detectValue[ind.i, scoreCol.j]))
+						names(value.ij) <- paste(names(scoreFuns.j), scoreCol.j, sep='_')
+					}
+					value.i <- c(value.i, value.ij)
+				}
+			} 
 			return(value.i)
 		})
-		
+
 		dmr2score <- do.call('rbind', dmr2score)
 		rownames(dmr2score) <- names(dmr2ind) 
-		avg.score <- matrix(NA, nrow=length(sigDMRInfo.r), ncol=length(scoreColumns) * length(scoreFuns))
-		scoreFunName <- names(scoreFuns)
-		if (is.null(scoreFunName)) scoreFunName <- paste('Fun', 1:length(scoreFuns), sep='')
-		colnames(avg.score) <- unlist(lapply(scoreFunName, paste, scoreColumns, sep='_'))
+		avg.score <- matrix(NA, nrow=length(sigDMRInfo.r), ncol=ncol(dmr2score))
+		if (is.null(colnames(dmr2score))) {
+			scoreFunName <- names(scoreFuns)
+			if (is.null(scoreFunName)) scoreFunName <- paste('Fun', 1:length(scoreFuns), sep='')
+			colnames(avg.score) <- unlist(lapply(scoreFunName, paste, scoreColumns, sep='_'))
+		} else {
+			colnames(avg.score) <- colnames(dmr2score)
+		}
 		avg.score[as.numeric(rownames(dmr2score)),] <- dmr2score
 		dmrInfo <- data.frame(dmrInfo, as.data.frame(avg.score))
 	}
@@ -654,7 +673,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 		rownames(mapInfo) <- values(grange.ext)$id
 		mapInfo[names(dmr2exons.flat), 'Exons'] <- dmr2exons.flat
 
-		exon1_status <- sapply(values(hitExons)$exon_rank, function(x) any(x== 1))
+		exon1_status <- sapply(as.list(values(hitExons)$exon_rank), function(x) any(x== 1))
 		if (any(exon1_status)) {
 			id_exon1 <- dmr2exons[exon1_status,1]
 			tx_exon1 <- sapply(values(hitExons)$tx_name[exon1_status], head, 1)

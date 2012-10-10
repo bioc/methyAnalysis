@@ -82,8 +82,13 @@ createTranscriptTrack <- function(gene,
 		id <- values(selTrans)$exon_id
 		tx_name <- values(selTrans)$tx_name
 		if (is.null(geneSymbol)) geneSymbol <- tx_name
-		transTrack <- GeneRegionTrack(range=ranges(selTrans), strand=strand(selTrans), genome=genome, chromosome=chromosome, 
-					 feature=tx_name, gene=geneSymbol, exon=id, transcript=tx_name, name="Gene Model", showId=TRUE, background.title=background.title, ...)
+		if (length(selTrans) > 0) {
+			transTrack <- GeneRegionTrack(range=ranges(selTrans), strand=strand(selTrans), genome=genome, chromosome=chromosome, 
+						 feature=tx_name, gene=geneSymbol, exon=id, transcript=tx_name, name="Gene Model", showId=TRUE, background.title=background.title, ...)
+		} else {
+			warning('No genes in the selected chromosome range!')
+			transTrack <- NULL
+		}
 		
 	} else if (is.null(grange2show)) {
 		## set the grange2show based on Entrez gene database, e.g., 'org.Hs.eg.db'
@@ -143,7 +148,8 @@ createTranscriptTrack <- function(gene,
 			chromosome=chromosome, genome=genome, rstarts="exonStarts", rends="exonEnds", gene="name",
 			symbol="name", transcript="name", strand="strand", showId=TRUE, name="UCSC Genes", background.title=background.title, ...)
 	}	
-	attr(transTrack, 'grange2show') <- grange2show
+	if (!is.null(transTrack))
+		attr(transTrack, 'grange2show') <- grange2show
 	return(transTrack)
 }
 
@@ -177,8 +183,10 @@ buildAnnotationTracks <- function(
 		warning('Current version can only support one gene per plot!')
 		gene <- gene[1]
 	}
+	grange2show <- NULL
 	if (is(gene, 'GRanges')) {
 		chromosome <- as.character(seqnames(gene))
+		grange2show <- gene
 	} else if (require(lib, character.only=TRUE)) {
 		chromosome <- lookUp(gene, lib, 'CHR')[[1]]
 	}
@@ -187,7 +195,11 @@ buildAnnotationTracks <- function(
 	## create annotation tracks
 	# Ideogram (cytoband) track
 	allTracks <- iTrack <- NULL
-	if (is.null(cytobandInfo) && length(readLines(url('http://genome.ucsc.edu'))) > 0) {
+	## check internet connection
+	con <- url('http://genome.ucsc.edu')
+	internetStatus <- length(readLines(con)) > 0
+	close(con)
+	if (is.null(cytobandInfo) && internetStatus) {
 		iTrack <- IdeogramTrack(genome=genome, chromosome=chromosome)
 	} else if (is(cytobandInfo, 'IdeogramTrack')) {
 		iTrack <- cytobandInfo
@@ -225,9 +237,9 @@ buildAnnotationTracks <- function(
 	if (!is.null(transTrack)) {
 		allTracks <- c(allTracks, list(transTrack))
 		## update grange2show
-		attr(allTracks, 'grange2show') <- attr(transTrack, 'grange2show')
+		grange2show <- attr(transTrack, 'grange2show')
 	}
-	
+	attr(allTracks, 'grange2show') <- grange2show
 	return(allTracks)
 }
 
@@ -295,8 +307,10 @@ heatmapByChromosome <- function(
 	allTracks <- annotationTracks
 	## get grange2show
 	grange2show <- attr(annotationTracks, 'grange2show')
-	grange2show <- checkChrName(grange2show, addChr=TRUE)
-	chromosome <- as.character(seqnames(grange2show))[1]
+	if (is.null(grange2show)) {
+		stop('"grange2show" of the annotationTracks should not be NULL!')
+	} 
+	chromosome <- as.character(seqnames(grange2show))
 	
 	## add otherTracks if provided
 	if (!is.null(otherTrackList)) {
@@ -489,6 +503,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		annotationTracks <- buildAnnotationTracks(gene=gene.i, includeGeneBody=includeGeneBody, CpGInfo=CpGInfo, genomicFeature=genomicFeature, ...)
 	
 		sigTx <- sigGene2tx[[i]]
+		if (is.null(sigTx)) return(NULL)
 		if (showAllTx) {
 			selTx <- gene2tx[[gene.i]]
 			selTx <- c(sigTx, selTx[!(selTx %in% sigTx)])
@@ -909,6 +924,7 @@ checkChrName <- function(grange, addChr=TRUE) {
 		}
 	} else if (addChr) {
 		ind <- grep('^[0-9XY][0-9]?', chrName)
+		ind <- c(ind, grep('^MT', chrName))
 		chrName[ind] <- paste('chr', chrName[ind], sep='')
 	}
 	
