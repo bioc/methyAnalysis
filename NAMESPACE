@@ -39,7 +39,7 @@ importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrac
 exportClasses(MethyGenoSet)
 exportMethods(exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-", "unmethylated<-", "detection<-", getHistory, combine, "[", coerce, locData, "locData<-", chrNames)
 
-export(annotateDMRInfo, annotateGRanges, detectDMR.slideWin, export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, heatmapByChromosome, plotMethylationHeatmapByGene, plotTracksWithDataTrackInfo, checkChrName
+export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin, export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, heatmapByChromosome, plotMethylationHeatmapByGene, plotTracksWithDataTrackInfo, checkChrName
 )
 
 

@@ -8,7 +8,7 @@ Annotate a GRanges object
 Annotate a GRanges object based on a transcription database
 }
 \usage{
-annotateGRanges(grange, annotationDatabase, CpGInfo = NULL, exons = FALSE, flankRange = 0, promoterRange = 2000, EntrezDB = "org.Hs.eg.db")
+annotateGRanges(grange, annotationDatabase, CpGInfo = NULL, exons = FALSE, flankRange = 0, promoterRange = 2000, checkGeneBody = FALSE, EntrezDB = "org.Hs.eg.db")
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -29,6 +29,9 @@ The flank range to be added to the input GRanges object
 }
   \item{promoterRange}{
 Define the size of promoter range at the upstream of TSS. Users can also directly provide the GRanges object
+}
+  \item{checkGeneBody}{
+Determine whether to check the overlapping with gene body or just check the promoter region
 }
   \item{EntrezDB}{
 The Entrez database for mapping from Entrez ID to gene symbols
