@@ -370,7 +370,7 @@ identifySigDMR <- function(detectResult, p.adjust.method="fdr", pValueTh=0.01, f
 
 	## only keep the sigDataInfo which overlaps with sigDMRInfo
 	sigDataInfo.g <- detectResult.g[sigProbe]
-	sigDataInfo.g <- sigDataInfo.g[!is.na(match(sigDataInfo.g, sigDMRInfo.g))]
+	sigDataInfo.g <- subsetByOverlaps(sigDataInfo.g, sigDMRInfo.g)
 
 	return(list(sigDMRInfo=sigDMRInfo.g, sigDataInfo=sigDataInfo.g))
 }
@@ -475,7 +475,7 @@ getContinuousRegion <- function(detectResult, scoreColumns=NULL, scoreFuns=c(mea
 	## combine overlapping regions
 	sigDMRInfo.r <- reduce(sigDMRInfo, min.gapwidth=minGap) 
 	
-	matchInfo <- GenomicRanges::match(detectResult.g, sigDMRInfo.r)
+	matchInfo <- GenomicRanges::findOverlaps(detectResult.g, sigDMRInfo.r, select="first")
 	ind <- which(!is.na(matchInfo))
 	dmr2ind <- split(ind, matchInfo[ind])
 	dmr2len <- sapply(dmr2ind, length)

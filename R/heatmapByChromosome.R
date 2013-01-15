@@ -70,7 +70,7 @@ createTranscriptTrack <- function(gene,
 		} else {
 			# if (is.null(grange2show)) stop('Please provide either gene id or grange2show parameter!')
 			allTrans <- exons(genomicFeature, columns=c('tx_name', 'exon_id'))	
-			selTrans <- allTrans[!is.na(GenomicRanges::match(allTrans, grange2show))]
+			selTrans <- GenomicRanges::subsetByOverlaps(allTrans, grange2show)
 			geneSymbol <- NULL
 		}
 		## flatten the tx_name (one exon to multiple transcripts)
@@ -324,7 +324,7 @@ heatmapByChromosome <- function(
 	## select related methylation data	
 	methyGenoSet <- checkChrName(methyGenoSet, addChr=TRUE)
 	grange.data <- suppressWarnings(as(locData(methyGenoSet), 'GRanges'))
-	selMethyData <- methyGenoSet[!is.na(GenomicRanges::match(grange.data, grange2show)),]
+	selMethyData <- methyGenoSet[GenomicRanges::overlapsAny(grange.data, grange2show),]
 	if (nrow(selMethyData) == 0) {
 		warning("There is no methylation data exist in the selected grange2show!")
 		return(NULL)
