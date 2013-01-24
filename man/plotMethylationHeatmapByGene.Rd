@@ -7,7 +7,11 @@ plot methylation heatmap by genes
 plot methylation heatmap by genes
 }
 \usage{
-plotMethylationHeatmapByGene(selGene, methyGenoSet, gene2tx = NULL, tx2exon = NULL, expression.tx = NULL, expression.exon = NULL, phenotype = NULL, sortBy=c('expression', 'methylation', 'NA'), renameExon = FALSE, showAllTx = TRUE, useBetaValue = TRUE, includeGeneBody = F, CpGInfo = NULL, genomicFeature = NULL, phenoColor = NULL, th = 0.99, title.suffix = NULL, addLegend = TRUE, gradient = c("blue", "white", "red"), ncolor = 16, main = NULL, newPlot = TRUE, ...)
+plotMethylationHeatmapByGene(selGene, methyGenoSet, gene2tx = NULL, tx2exon = NULL, expression.tx = NULL, expression.exon = NULL, 
+	phenotype = NULL, sortBy=c('expression', 'methylation', NA), renameExon = FALSE, showAllTx = TRUE, useBetaValue = TRUE, 
+	includeGeneBody = F, CpGInfo = NULL, genomicFeature = NULL, phenoColor = NULL, th = 0.99, title.suffix = NULL, addLegend = TRUE, 
+	methylationLegendTitle = NULL, expressionLegendTitle = "Expression\n(log2-RPKM)", gradient = c("blue", "white", "red"), 
+	ncolor = 16, main = NULL, newPlot = TRUE, ...)
 }
 \arguments{
   \item{selGene}{
@@ -35,7 +39,7 @@ a data.frame for phenotype information
 whether to sort samples based on the mean of expression profiles, methylation cluster or NA (no sorting)
 }
   \item{renameExon}{
-whether to rename exons as "transcript_exon1"
+whether to rename exons as "exon1_transcript"
 }
   \item{showAllTx}{
 whether to show all transcript in gene2tx or just those provided in selGene
@@ -63,6 +67,12 @@ a string attached to the end of the title
 }
   \item{addLegend}{
 whether to add a legend or not
+}
+  \item{methylationLegendTitle}{
+title for methylation colorbar legend
+}
+  \item{expressionLegendTitle}{
+title for expression colorbar legend
 }
   \item{gradient}{
 the gradient color to show the DataTrack

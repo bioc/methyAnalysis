@@ -1,12 +1,15 @@
 
-# transTrack <- createTranscriptTrack(gene='55432', genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', lib='org.Hs.eg.db', extendRange=c(2000, 2000))
+## Example:
+## transTrack <- createTranscriptTrack(gene='55432', genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', lib='org.Hs.eg.db', extendRange=c(2000, 2000))
 createTranscriptTrack <- function(gene, 
 				genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
 				lib='org.Hs.eg.db', 
 				genome='hg19', 
 				extendRange=c(2000, 2000), 
 				includeGeneBody=TRUE, 
-				background.title='brown', ...) {
+				thinBox_utrOnly=FALSE,
+				background.title='gray', 
+				fill="#8282d2", ...) {
 	
 	if (length(extendRange) == 1) {
 		extendRange <- rep(extendRange, 2)
@@ -38,59 +41,49 @@ createTranscriptTrack <- function(gene,
 		}
 	}
 
-	## Create transcript track based on provided genomicFeatures
-	selTrans <- transTrack <- NULL
 	if (is(genomicFeature, 'TranscriptDb')) {
-		## set the grange2show based on the TranscriptDb object
+		## convert it as "GeneRegionTrack" first
+		genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=chromosome, showId=TRUE)
+	}
+
+	## Create transcript track based on provided genomicFeatures
+	transTrack <- NULL
+	if (is(genomicFeature, 'GeneRegionTrack')) {
+		## estimate grange2show and create a transTrack within selected grange2show
 		if (is.null(grange2show)) {
-			# refseqs <- lookUp(gene, lib, 'REFSEQ')[[1]]
-			# refseqs <- grep( "^NM", refseqs, value = TRUE )
-			selTrans <- exons(genomicFeature, vals=list(gene_id=gene), columns=c('tx_name', 'exon_id'))	
-			if (length(selTrans) == 0) {
+			allGene <- gene(genomicFeature)
+			selInd <- which(allGene %in% gene)
+			if (length(selInd) == 0) {
 				if (grepl('^GeneID:', gene, ignore.case=TRUE)) {
 					gene <- sub('^GeneID:', '', gene)
 				} else {
 					gene <- paste('GeneID:', gene, sep='')
 				}
-				selTrans <- exons(genomicFeature, vals=list(gene_id=gene), columns=c('tx_name', 'exon_id'))
+				selInd <- which(allGene %in% gene)
+				if (length(selInd) == 0) {
+					warning('No genes in the selected chromosome range!')
+				}
 			}
+			transTrack <- genomicFeature[selInd]
+			selTrans <- ranges(genomicFeature)[selInd]
 			if (includeGeneBody) {
 				rr <- cbind(start(selTrans), end(selTrans))
 				ss <- min(rr) - extendRange[1]
 				ee <- max(rr) + extendRange[2]
 			} else {
 				## only retrieve the region surrounding TSS
-				tmp <- transcripts(genomicFeature, vals=list(gene_id=gene))
-				tss <- ifelse(as.character(strand(tmp)) == '-', end(tmp), start(tmp))
+				selTrans <- selTrans[feature(genomicFeature)[selInd] == 'utr5']
+				tss <- ifelse(as.character(strand(selTrans)) == '-', end(selTrans), start(selTrans))
 				ss <- min(tss) - extendRange[1]
 				ee <- max(tss) + extendRange[2]
 			}
 			grange2show <- GRanges(seqnames=chromosome, strand='*', ranges=IRanges(start=ss, end=ee))
-			geneSymbol <- lookUp(gene, lib, 'SYMBOL')[[1]]
 		} else {
-			# if (is.null(grange2show)) stop('Please provide either gene id or grange2show parameter!')
-			allTrans <- exons(genomicFeature, columns=c('tx_name', 'exon_id'))	
-			selTrans <- GenomicRanges::subsetByOverlaps(allTrans, grange2show)
-			geneSymbol <- NULL
+			transTrack <- genomicFeature[ranges(genomicFeature) %in% grange2show]
 		}
-		## flatten the tx_name (one exon to multiple transcripts)
-		tx_name <- IRanges::as.list(values(selTrans)$tx_name)
-		tx_len <- sapply(tx_name, length)
-		selTrans <- rep(selTrans, tx_len)
-		values(selTrans)$tx_name <- unlist(tx_name)
-		selTrans <- checkChrName(selTrans, addChr=TRUE)
-		id <- values(selTrans)$exon_id
-		tx_name <- values(selTrans)$tx_name
-		if (is.null(geneSymbol)) geneSymbol <- tx_name
-		if (length(selTrans) > 0) {
-			transTrack <- GeneRegionTrack(range=ranges(selTrans), strand=strand(selTrans), genome=genome, chromosome=chromosome, 
-						 feature=tx_name, gene=geneSymbol, exon=id, transcript=tx_name, name="Gene Model", showId=TRUE, background.title=background.title, ...)
-		} else {
-			warning('No genes in the selected chromosome range!')
-			transTrack <- NULL
-		}
+	}
 		
-	} else if (is.null(grange2show)) {
+	if (is.null(grange2show)) {
 		## set the grange2show based on Entrez gene database, e.g., 'org.Hs.eg.db'
 		gene <- sub('^GeneID:', '', gene)
 		ss <- lookUp(gene, lib, 'CHRLOC')[[1]]
@@ -146,10 +139,18 @@ createTranscriptTrack <- function(gene,
 	if (is.null(genomicFeature)) {
 		transTrack <- UcscTrack(track="knownGene", trackType="GeneRegionTrack", from=start(grange2show)[1], to=end(grange2show)[1],
 			chromosome=chromosome, genome=genome, rstarts="exonStarts", rends="exonEnds", gene="name",
-			symbol="name", transcript="name", strand="strand", showId=TRUE, name="UCSC Genes", background.title=background.title, ...)
+			symbol="name", transcript="name", strand="strand", showId=TRUE, name="UCSC Genes")
 	}	
-	if (!is.null(transTrack))
+	if (!is.null(transTrack)) {
+		names(transTrack) <- "Gene Model"
+		displayPars(transTrack) <- list(background.title=background.title, fill=fill, ...)
 		attr(transTrack, 'grange2show') <- grange2show
+	}
+	## only show utr as thinBox
+	if (thinBox_utrOnly) {
+		thinBoxFeature <- displayPars(transTrack)$thinBoxFeature
+		displayPars(transTrack)$thinBoxFeature <- thinBoxFeature[grepl('utr', thinBoxFeature, ignore.case=TRUE)]
+	}
 	return(transTrack)
 }
 
@@ -221,13 +222,14 @@ buildAnnotationTracks <- function(
 		} else if (!is(CpGInfo, 'GRanges') && !is.na(CpGInfo)) {
 			stop('CpGInfo should be either a bed file or a GRanges object!')
 		}
-	} else if (length(readLines(url('http://genome.ucsc.edu'))) > 0) {
+	} else if (internetStatus) {
 		## get CpG-island info from UCSC if CpGInfo is null
 		CpGInfo <- getCpGIsland.ucsc(hgVersion=genome)
 	} 
 
 	if (is(CpGInfo, 'GRanges')) {
-		cpgTrack <- AnnotationTrack(CpGInfo, chromosome=chromosome, genome=genome, name='CpG-island')
+		values(CpGInfo) <- DataFrame(values(CpGInfo), feature='CpG_island', id=1:length(CpGInfo)) 
+		cpgTrack <- AnnotationTrack(CpGInfo, chromosome=chromosome, genome=genome, name='CGI') # , cex.title=0.8)
 		allTracks <- c(allTracks, list(cpgTrack))
 	}
 
@@ -263,6 +265,7 @@ heatmapByChromosome <- function(
 					expColorMap = NULL,	# a list of colormaps for every column-side rows
 					extendRange=c(2000, 2000), # extended range on each side of the	gene
 					includeGeneBody=TRUE, # wether to include genebody of the provided gene
+					showFullModel=FALSE, # only valid when includeGeneBody is FALSE
 					sortSample=TRUE,			# whether to sort samples based on intensity profiles
 					cytobandInfo=NULL,		# cytoband information, 
 					CpGInfo=NULL,					# CpG-island information, GRanges or bed file are supported
@@ -324,7 +327,7 @@ heatmapByChromosome <- function(
 	## select related methylation data	
 	methyGenoSet <- checkChrName(methyGenoSet, addChr=TRUE)
 	grange.data <- suppressWarnings(as(locData(methyGenoSet), 'GRanges'))
-	selMethyData <- methyGenoSet[GenomicRanges::overlapsAny(grange.data, grange2show),]
+	selMethyData <- methyGenoSet[!is.na(GenomicRanges::match(grange.data, grange2show)),]
 	if (nrow(selMethyData) == 0) {
 		warning("There is no methylation data exist in the selected grange2show!")
 		return(NULL)
@@ -349,9 +352,84 @@ heatmapByChromosome <- function(
 	dTrack <- DataTrack(range=suppressWarnings(as(locData(selMethyData), 'GRanges')), data=t(assayData(selMethyData)$exprs), 
 		chromosome=chromosome, name=dataTrackName, type='heatmap',	gradient=gradient, ncolor=ncolor)		
 	allTracks <- c(allTracks, list(dTrack))
+
+	if (!includeGeneBody && showFullModel) {
 	
-	## plot Tracks with annotation of DataTrack
-	plotInfo <- plotTracksWithDataTrackInfo(allTracks, sampleNames(selMethyData), grange2show=grange2show, dataInfo=expProfile, dataColorMap=expColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, main=main, ...)
+		## remove IdeogramTrack if exists
+		allTracks <- allTracks[sapply(allTracks, class) != 'IdeogramTrack']
+		
+		## estimate the space of tracks
+		allTracks <- lapply(allTracks, subset, from=start(grange2show), to=end(grange2show), chromosome=chromosome)
+    allTracks <- lapply(allTracks, Gviz:::setStacks, from=start(grange2show), to=end(grange2show))
+    
+		spaceSetup <- Gviz:::.setupTextSize(allTracks, sizes=NULL)
+		geneModelTrackInd <- which(sapply(allTracks, class) == 'GeneRegionTrack')
+		geneModelHeight <- spaceSetup$spaceNeeded[geneModelTrackInd]
+		
+		if (main != '' && !is.null(main)) geneModelHeight <- geneModelHeight + 0.05
+		layout.height <- c(geneModelHeight/(1.05+geneModelHeight), 0.05/(1.05+geneModelHeight), 1/(1.05+geneModelHeight))
+		pushViewport(viewport(layout=grid.layout(3, 1, heights=layout.height)))
+
+		## plot annotation or phenotype information
+		pushViewport(viewport(layout.pos.col=1, layout.pos.row=3))	
+		
+		## change GenomeAxisTrack 
+		axisTrackInd <- which(sapply(allTracks, class) == 'GenomeAxisTrack')
+		if (length(axisTrackInd) > 0) {
+			displayPars(allTracks[[axisTrackInd]])$littleTicks <- TRUE
+		}
+		## plot Tracks with annotation of DataTrack
+		plotInfo <- plotTracksWithDataTrackInfo(allTracks, sampleNames(selMethyData), grange2show=grange2show, dataInfo=expProfile, dataColorMap=expColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, ...)
+		popViewport(1)
+
+		pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
+		geneModelTrack <- allTracks[[geneModelTrackInd]]
+		names(geneModelTrack) <- 'Full Model'
+		start.range <- min(start(geneModelTrack)) 
+		end.range <- max(end(geneModelTrack))
+		start.range <- start.range - (end.range - start.range) / 5
+		plotInfo.fullModel <- plotTracks(geneModelTrack, from=start.range, to=end.range, chromosome=chromosome, add=TRUE, main=main, ...)
+			
+		## plot rectangle of the grange2show
+		X0 <- as.numeric(convertX(unit(0,'npc'), 'points'))
+		X1 <- as.numeric(convertX(unit(1,'npc'), 'points'))
+		Y0 <- as.numeric(convertY(unit(0,'npc'), 'points'))
+		Y1 <- as.numeric(convertY(unit(1,'npc'), 'points'))
+		totalWidth <- X1 - X0
+		totalHeight <- Y1 - Y0
+		
+		## retrieve the plot coordinates		
+		plotLoc.fullModel <- coords(plotInfo.fullModel$title)
+		margin.x <- (plotLoc.fullModel[1, 'x1'] - X0)/totalWidth
+		plotWidth <- (X1 - plotLoc.fullModel[1, 'x2'])/totalWidth - 2*margin.x
+		x0 <- (plotLoc.fullModel[1, 'x2'] - X0)/totalWidth + margin.x
+		y1 <- (plotLoc.fullModel[1, 'y1'] - Y0)/totalHeight
+		plotHeight <- (plotLoc.fullModel[1, 'y2'] - plotLoc.fullModel[1, 'y1'])/totalHeight
+		showRegion <- end(grange2show) - start(grange2show)
+		x1 <- x0 + plotWidth * (start(grange2show) - start.range)/(end.range - start.range)
+		rect.width <- plotWidth * (end(grange2show) - start(grange2show))/(end.range - start.range)
+		grid.rect(x1, y1, width=rect.width, height=plotHeight, gp=gpar(col=2, lwd=2, alpha=0.5), just=c('left', 'bottom'))
+		x1.points <- as.numeric(convertX(unit(x1, 'npc'), 'points'))
+		x2.points <- as.numeric(convertX(unit(x1 + rect.width, 'npc'), 'points'))
+		y1.points <- y2.points <- as.numeric(convertY(unit(1 - y1, 'npc'), 'points'))
+
+		popViewport(2)
+
+		## plot dash lines to the zoom-in region
+		zoominCor <- coords(plotInfo$title)
+		x1.zm <- zoominCor[1, 'x2']
+		y1.zm <- y2.zm <- zoominCor[1, 'y1']
+		x2.zm <- as.numeric(convertX(unit(1 - plotInfo$labelWidth, 'npc'), 'points'))
+		totalHeight <- as.numeric(convertY(unit(1, 'npc'), 'points'))
+		grid.lines(x=c(x1.points, x1.zm), y=totalHeight-c(y1.points,y1.zm), default.units='points', gp=gpar(col=2, lty=2))
+		grid.lines(x=c(x2.points, x2.zm), y=totalHeight-c(y2.points,y2.zm), default.units='points', gp=gpar(col=2, lty=2))
+
+		newPlotInfo <- list(fullModel=plotInfo.fullModel, main=plotInfo, layout.height=layout.height)
+		plotInfo <- newPlotInfo
+	} else {
+		## plot Tracks with annotation of DataTrack
+		plotInfo <- plotTracksWithDataTrackInfo(allTracks, sampleNames(selMethyData), grange2show=grange2show, dataInfo=expProfile, dataColorMap=expColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, main=main, ...)
+	}
 
 	return(invisible(plotInfo))
 }
@@ -366,16 +444,17 @@ heatmapByChromosome <- function(
 ##	 expression.exon: an ExpressionSet or data matrix for exon expression
 ##	 phenotype: an ExpressionSet or data.frame for phenotype informaiton
 ##	 sortBy: sort the samples based on expression, methylation or NA (not sort)
-##	 renameExon: whether to rename exons as "transcript_exon1"
+##	 renameExon: whether to rename exons as "exon1_transcript"
 ##	 showAllTx: whether to show all transcript in gene2tx or just those provided in selGene
 ##	 includeGeneBody: if FALSE, then only shows the promoter region
 ##	 CpGInfo: a bed file or GRanges for CpG island information
 ##	 genomicFeature: used by buildAnnotationTracks function
 ##	 phenoColor: a vector of colors for pheno types.
 plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx2exon=NULL, expression.tx=NULL, expression.exon=NULL, 
-	phenotype=NULL, sortBy=c('expression', 'methylation', 'NA'), renameExon=FALSE, showAllTx=TRUE, useBetaValue=TRUE, includeGeneBody=F, CpGInfo=NULL, genomicFeature=NULL, 
-	phenoColor=NULL, th=0.99, title.suffix=NULL, addLegend=TRUE, gradient=c("blue", "white", "red"), ncolor=16, main=NULL, newPlot=TRUE, ...) {
-	sortBy <- as.character(sortBy)
+	phenotype=NULL, sortBy=c('expression', 'methylation', NA), renameExon=FALSE, showAllTx=TRUE, useBetaValue=TRUE, includeGeneBody=F, CpGInfo=NULL, genomicFeature=NULL, 
+	phenoColor=NULL, th=0.99, title.suffix=NULL, addLegend=TRUE, methylationLegendTitle=NULL, expressionLegendTitle='Expression\n(log2-RPKM)', gradient=c("blue", "white", "red"), 
+	ncolor=16, main=NULL, newPlot=TRUE, ...) {
+  sortBy <- as.character(sortBy)
 	sortBy <- match.arg(sortBy)
 	
 	if (useBetaValue) {
@@ -549,16 +628,22 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		ord <- 1:ncol(methyGenoSet)
 		if (!is.null(expMatrix.exon) && !is.null(tx2exon)) {
 			selExon1 <- tx2exon[selTx]
+			selExon1 <- selExon1[selExon1 %in% rownames(expMatrix.exon)]
 			expProfile.exon1 <- t(expMatrix.exon[selExon1,,drop=FALSE])
 			if (renameExon) {
-				colnames(expProfile.exon1) <- paste(selTx, 'exon1', sep='_')
-				sigExon1 <- paste(sigTx, 'exon1', sep='_')
+				# colnames(expProfile.exon1) <- paste(selTx, 'exon1', sep='_')
+				# sigExon1 <- paste(sigTx, 'exon1', sep='_')
+				colnames(expProfile.exon1) <- paste('exon1', selTx, sep='_')
+				sigExon1 <- paste('exon1', sigTx, sep='_')
 			} else {
 				sigExon1 <- tx2exon[sigTx]
 			}
 			expProfile <- cbind(expProfile, expProfile.exon1)
+
+			selCol <- c(sigExon1, sigTx)
+			selCol <- selCol[selCol %in% colnames(expProfile)]
 			## sort only based on significant exon1 and transcript
-			ord <- order(rowMeans(expProfile[, c(sigExon1, sigTx), drop=FALSE], na.rm=TRUE), decreasing=FALSE)
+			ord <- order(rowMeans(expProfile[, selCol, drop=FALSE], na.rm=TRUE), decreasing=FALSE)
 		} else if (!is.null(expProfile)) {
 			## sort only based on significant Tx
 			ord <- order(rowMeans(expProfile[,sigTx,drop=FALSE], na.rm=TRUE), decreasing=FALSE)
@@ -590,28 +675,30 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		## plotting legend
 		if (newPlot) grid.newpage()
 		if (addLegend) {
-			legendWidth <- 0.12
-			plotWidth <- 1 - legendWidth
-			pushViewport(viewport(layout=grid.layout(1, 2, widths=c(plotWidth, legendWidth))))
+			legendWidth <- 0.12 
+			sepWidth <- 0.08
+			plotWidth <- 1 - legendWidth - sepWidth
+			layout.width <- c(plotWidth, sepWidth, legendWidth)
+			pushViewport(viewport(layout=grid.layout(1, 3, widths=layout.width)))
 			pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
 		} 
 		
 		if (sortBy == 'expression' && !is.null(expProfile)) {
 			plotInfo <- heatmapByChromosome(methyGenoSet[, ord,drop=F],	gene.i,	annotationTracks=annotationTracks, expProfile=expProfile[ord,,drop=F], 
 																 expColorMap=phenoColor, sortSample=F, dataTrackName='Methylation Profile', main=main, 
-																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, ...)
+																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)
 		} else {
 			sortSample <- ifelse(sortBy == 'methylation', TRUE, FALSE)
 			plotInfo <- heatmapByChromosome(methyGenoSet,	gene.i,	annotationTracks=annotationTracks, expProfile=expProfile, 
 																 expColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, 
-																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, ...)
+																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)
 		}
 		
 		## plot legendInfo
 		if (addLegend) {
 			popViewport(1)
 			## plot legend information
-			pushViewport(viewport(layout.pos.col=2, layout.pos.row=1))
+			pushViewport(viewport(layout.pos.col=3, layout.pos.row=1))
 			
 			## determine the height of legends
 			## the height of methylation and expression colorbars are 2*legendHeight
@@ -621,7 +708,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			} else {
 				legendHeight <- (1 -	(2 + numOfOtherLegend) * 0.05) / (2 + numOfOtherLegend)
 			}
-			x0 <- 0.15
+			x0 <- 0.15 # 0.15 ## starting plotting point in x-axis
 			colWidth <- 0.15
 			
 			## plot methylation legend
@@ -642,11 +729,16 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			## add tick labels
 			fontsize <- round(as.numeric(convertX(unit(0.8, 'npc'), 'points'))/6)
 			grid.text(ytickLabel, x=x0 + colWidth + 0.08, y=ytickPos, just=c("left", "center"), default.units = "npc", gp=gpar(fontsize=fontsize))
-			## add title
-			methySubtitle <- ifelse(useBetaValue, '(Beta-value)', '(M-value)')
-			grid.text('Methylation', x=0.5, y=max(ytickPos) + 0.025 + as.numeric(convertY(unit(fontsize, 'points'), 'npc')), just=c('center', 'bottom'), 
+			## add legend title
+			if (is.null(methylationLegendTitle)) {
+				methylationLegendTitle <- c('Methylation', ifelse(useBetaValue, '(Beta-value)', '(M-value)'))
+			} else {
+				methylationLegendTitle <- strsplit(methylationLegendTitle, '\n')[[1]]
+			}
+			grid.text(methylationLegendTitle[1], x=0.5, y=max(ytickPos) + 0.025 + as.numeric(convertY(unit(fontsize, 'points'), 'npc')), just=c('center', 'bottom'), 
 						default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
-			grid.text(methySubtitle, x=0.5, y=max(ytickPos) + 0.02, just=c('center', 'bottom'), default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
+			if (length(methylationLegendTitle) > 1)
+				grid.text(methylationLegendTitle[2], x=0.5, y=max(ytickPos) + 0.02, just=c('center', 'bottom'), default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
 
 			## plot expression legend
 			if (!is.null(expProfile.range)) {
@@ -667,9 +759,15 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 				## add tick labels
 				grid.text(ytickLabel, x=x0 + colWidth + 0.08, y=ytickPos, just=c("left", "center"), default.units = "npc", gp=gpar(fontsize=fontsize))
 				## add title
-				grid.text('Expression', x=0.5, y=max(ytickPos) + 0.025 + as.numeric(convertY(unit(fontsize, 'points'), 'npc')), just=c('center', 'bottom'), 
+				if (is.null(expressionLegendTitle)) {
+					expressionLegendTitle <- c('Expression', 'log2-RPKM')
+				} else {
+					expressionLegendTitle <- strsplit(expressionLegendTitle, '\n')[[1]]
+				}
+				grid.text(expressionLegendTitle[1], x=0.5, y=max(ytickPos) + 0.025 + as.numeric(convertY(unit(fontsize, 'points'), 'npc')), just=c('center', 'bottom'), 
 							default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
-				grid.text('(log2-RPKM)', x=0.5, y=max(ytickPos) + 0.02, just=c('center', 'bottom'), default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
+				if (length(expressionLegendTitle) > 1)			
+					grid.text(expressionLegendTitle[2], x=0.5, y=max(ytickPos) + 0.02, just=c('center', 'bottom'), default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
 			}
 
 			## Add other phenoColor legends
@@ -708,7 +806,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 				}
 			}
 			
-			plotInfo <- c(plotInfo, legendWidth=legendWidth)
+			plotInfo <- c(plotInfo, layout.width=layout.width)
 			popViewport(1)
 		}			
 		
@@ -798,10 +896,15 @@ plotTracksWithDataTrackInfo <- function(trackList, labels, grange2show=NULL, dat
 
 	defaultPar <- Gviz:::.parMappings$GdObject		
 	## calculate the label positions 
-	hh <- (plotLoc[dataTrackName, 'y2'] - plotLoc[dataTrackName, 'y1'])/(plotLoc[nrow(plotLoc), 'y2'] + plotLoc[1, 'x1'])
-	y0 <- (plotLoc[dataTrackName, 'y1'])/(plotLoc[nrow(plotLoc), 'y2'] + plotLoc[1, 'x1'])
+	# hh <- (plotLoc[dataTrackName, 'y2'] - plotLoc[dataTrackName, 'y1'])/(plotLoc[nrow(plotLoc), 'y2'] + plotLoc[1, 'x1'])
+	# y0 <- (plotLoc[dataTrackName, 'y1'])/(plotLoc[nrow(plotLoc), 'y2'] + plotLoc[1, 'x1'])
+	allHeight <- plotLoc[,'y2'] - plotLoc[,'y1']
+	y0 <- (plotLoc[dataTrackName, 'y1'] - min(plotLoc[, 'y1']))/ sum(allHeight)
+	allHeight <- allHeight/sum(allHeight)
+	hh <- allHeight[dataTrackName]
 	realHeight <- hh / 1.1
 	# grid.rect(0, y=1 - y0 - hh/2, width=1, height=realHeight, just=c('left', 'center'), gp=gpar(lty='dashed', col=3))
+
 	ystart <- 1 - y0 - hh/2 - realHeight / 2
 	yend <- 1 - y0 - hh/2 + realHeight / 2
 	stepHeight <- realHeight / length(labels)
@@ -892,7 +995,7 @@ plotTracksWithDataTrackInfo <- function(trackList, labels, grange2show=NULL, dat
 	}
 	fontsizeW <- round(as.numeric(convertX(unit(realLabelWidth / 5, 'npc'), 'points')))
 	fontsize <- min(fontsize, fontsizeW)
-	grid.text(labels, x=x0, y = stepHeight * (1:length(labels)) + ystart - stepHeight/2, just=c('left', 'center'), gp=gpar(fontfamily=defaultPar$fontfamily, fontsize=fontsize, fontface=defaultPar$fontface, col=3))
+	grid.text(labels, x=x0, y = stepHeight * (1:length(labels)) + ystart - stepHeight/2, just=c('left', 'center'), gp=gpar(fontfamily=defaultPar$fontfamily, fontsize=fontsize, fontface=defaultPar$fontface, col=1))
 	popViewport(2)
 	
 	plotInfo <- c(plotInfo, labelWidth=labelWidth)

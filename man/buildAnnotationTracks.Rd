@@ -21,7 +21,7 @@ extended range on each side of the  gene
 whether to include genebody of the provided gene
 }
   \item{cytobandInfo}{
-cytoband information
+cytoband information. Set NA to suppress it.
 }
   \item{CpGInfo}{
 CpG-island information, GRanges or bed file are supported

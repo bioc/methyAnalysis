@@ -7,7 +7,11 @@ heatmap with chromosome location as x axis
 heatmap with chromosome location as x axis and plot together with other gene annotation information
 }
 \usage{
-heatmapByChromosome(methyGenoSet, gene, annotationTracks = NULL, otherTrackList = NULL, expProfile = NULL, expColorMap = NULL, extendRange = c(2000, 2000), includeGeneBody = TRUE, sortSample = TRUE, cytobandInfo = NULL, CpGInfo = NULL, genomeAxis = TRUE, dataTrackName = "Methylation Profile", lib = "org.Hs.eg.db", genome = "hg19", genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", gradient = c("blue", "white", "red"), ncolor = 16, main = "", ...)
+heatmapByChromosome(methyGenoSet, gene, annotationTracks = NULL, otherTrackList = NULL, expProfile = NULL,  
+	expColorMap = NULL, extendRange = c(2000, 2000), includeGeneBody = TRUE, showFullModel = FALSE, sortSample = TRUE,  
+	cytobandInfo = NULL, CpGInfo = NULL, genomeAxis = TRUE, dataTrackName = "Methylation Profile", lib = "org.Hs.eg.db", 
+	genome = "hg19", genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", gradient = c("blue", "white", "red"), 
+	ncolor = 16, main = "", ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -34,6 +38,9 @@ extended range on each side of the  gene
 }
   \item{includeGeneBody}{
 whether to include genebody of the provided gene
+}
+  \item{showFullModel}{
+whether to show full gene model track when includeGeneBody = FALSE
 }
   \item{sortSample}{
 whether to sort samples or not

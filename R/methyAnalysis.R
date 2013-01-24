@@ -55,7 +55,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylatio
 	if (is(methyData, 'MethyLumiM')) {
 		chrInfo <- getChrInfo(methyData, lib=lib)
 	} else {
-		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=space(methyData), POSITION=start(methyData), END=end(methyData))
+		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=space(locData(methyData)), POSITION=start(methyData), END=end(methyData))
 	}
 	ratioData <- as.data.frame(exprs(methyData))
 
@@ -125,7 +125,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	## get the annotation version
 	hgVersion <- universe(methyGenoSet)
 	
-	chr <- space(methyGenoSet)
+	chr <- space(locData(methyGenoSet))
 	start <- start(methyGenoSet)
 	## Sort the rows of ratios.obj
 	methyGenoSet <- methyGenoSet[order(chr, start),]

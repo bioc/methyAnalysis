@@ -7,7 +7,8 @@ Create a transcript annotation track
 Create a transcript track, which is a GeneRegionTrack object
 }
 \usage{
-createTranscriptTrack(gene, genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", lib = "org.Hs.eg.db", genome = "hg19", extendRange = c(2000, 2000), includeGeneBody = TRUE, background.title = "brown", ...)
+createTranscriptTrack(gene, genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", lib = "org.Hs.eg.db", genome = "hg19", 
+	extendRange = c(2000, 2000), includeGeneBody = TRUE, thinBox_utrOnly = FALSE, background.title = "gray", fill = "#8282d2", ...)
 }
 \arguments{
   \item{gene}{
@@ -28,8 +29,14 @@ extended range on each side of the  gene
   \item{includeGeneBody}{
 whether to include the whole gene body or not
 }
+  \item{thinBox_utrOnly}{
+whether to only show UTRs as thin boxs in the plot
+}
   \item{background.title}{
 the background color of the title
+}
+  \item{fill}{
+fill color for transcript track
 }
   \item{\dots}{
 other parameters

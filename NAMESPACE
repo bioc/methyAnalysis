@@ -25,7 +25,7 @@ importClassesFrom(genoset, GenoSet)
 importClassesFrom(IRanges, IRanges, RangedData)
 importClassesFrom(GenomicRanges, GRanges)
 importMethodsFrom(IRanges, space, start, end, width, universe, values, "values<-", unlist, as.vector, as.list)
-importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, "seqnames<-", "seqlevels<-", findOverlaps, overlapsAny, subsetByOverlaps, as.data.frame)
+importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, "seqnames<-", "seqlevels<-", match, as.data.frame)
 importMethodsFrom(genoset, locData, "locData<-", chrNames, chrInfo)
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
 importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts, loadFeatures)
@@ -34,6 +34,7 @@ importFrom(genoset, GenoSet)
 importFrom(GenomicRanges, GRanges)
 importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, BiomartGeneRegionTrack, 
 	UcscTrack, DataTrack, stacks, plotTracks, coords)
+importMethodsFrom(Gviz, gene, ranges, feature, displayPars, "displayPars<-")
 
 
 exportClasses(MethyGenoSet)
