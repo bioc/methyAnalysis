@@ -41,15 +41,23 @@ createTranscriptTrack <- function(gene,
 		}
 	}
 
+	## convert TranscriptDb as "GeneRegionTrack" first
 	if (is(genomicFeature, 'TranscriptDb')) {
-		## convert it as "GeneRegionTrack" first
-		genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=chromosome, showId=TRUE)
+		if (length(grep('^chr', seqlevels(genomicFeature), ignore.case=TRUE)) == 0) {
+			options(ucscChromosomeNames=FALSE)
+			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=checkChrName(chromosome, addChr=FALSE), showId=TRUE)
+		} else {
+			options(ucscChromosomeNames=TRUE)
+			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=chromosome, showId=TRUE)
+		}
 	}
 
 	## Create transcript track based on provided genomicFeatures
 	transTrack <- NULL
 	if (is(genomicFeature, 'GeneRegionTrack')) {
 		## estimate grange2show and create a transTrack within selected grange2show
+		genomicFeature <- checkChrName(genomicFeature, addChr=TRUE)		
+		chromosome(genomicFeature) <- checkChrName(chromosome(genomicFeature), addChr=TRUE)	
 		if (is.null(grange2show)) {
 			allGene <- gene(genomicFeature)
 			selInd <- which(allGene %in% gene)
@@ -1015,6 +1023,8 @@ checkChrName <- function(grange, addChr=TRUE) {
 		chrName <- chrNames(grange)
 	} else if (is(grange, 'RangedData')) {
 		chrName <- levels(space(grange))
+	} else if (is(grange, 'RangeTrack')) {
+		chrName <- seqlevels(ranges(grange))
 	} else {
 		chrName <- names(grange)
 		if (is.null(chrName)) 
@@ -1037,6 +1047,8 @@ checkChrName <- function(grange, addChr=TRUE) {
 		grange <- chrName
 	} else if (is(grange, 'GenoSet')) {
 		names(locData(grange)) <- chrName
+	} else if (is(grange, 'RangeTrack')) {
+		seqlevels(ranges(grange)) <- chrName
 	} else {
 		names(grange) <- chrName
 	} 
