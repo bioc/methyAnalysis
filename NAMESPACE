@@ -34,7 +34,7 @@ importFrom(genoset, GenoSet)
 importFrom(GenomicRanges, GRanges)
 importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, BiomartGeneRegionTrack, 
 	UcscTrack, DataTrack, stacks, plotTracks, coords)
-importMethodsFrom(Gviz, gene, ranges, feature, displayPars, "displayPars<-")
+importMethodsFrom(Gviz, gene, ranges, feature, chromosome, "chromosome<-", displayPars, "displayPars<-")
 
 
 exportClasses(MethyGenoSet)
