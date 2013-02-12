@@ -7,15 +7,15 @@ heatmap with chromosome location as x axis
 heatmap with chromosome location as x axis and plot together with other gene annotation information
 }
 \usage{
-heatmapByChromosome(methyGenoSet, gene, annotationTracks = NULL, otherTrackList = NULL, expProfile = NULL,  
-	expColorMap = NULL, extendRange = c(2000, 2000), includeGeneBody = TRUE, showFullModel = FALSE, sortSample = TRUE,  
+heatmapByChromosome(genoSet, gene, annotationTracks = NULL, otherTrackList = NULL, phenoData = NULL,  
+	phonoColorMap = NULL, extendRange = c(2000, 2000), includeGeneBody = TRUE, showFullModel = TRUE, sortSample = TRUE,  
 	cytobandInfo = NULL, CpGInfo = NULL, genomeAxis = TRUE, dataTrackName = "Methylation Profile", lib = "org.Hs.eg.db", 
 	genome = "hg19", genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", gradient = c("blue", "white", "red"), 
-	ncolor = 16, main = "", ...)
+	ncolor = 16, ylim = NULL, th = 0.99, main = "", ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{methyGenoSet}{
+  \item{genoSet}{
 a GenoSet object keeping the methylation data as the "exprs" numeric matrix in the AssayData
 }
   \item{gene}{
@@ -27,10 +27,10 @@ A annotation tracks list returned by buildAnnotationTracks
   \item{otherTrackList}{
 A list of other tracks supported by plotTracks function
 }
-  \item{expProfile}{
-a data matrix with the same number of rows or columns as the columns of methyGenoSet.
+  \item{phenoData}{
+a data matrix with the same number of rows or columns as the columns of genoSet.
 }
-  \item{expColorMap}{
+  \item{phonoColorMap}{
 the colormap for expression heatmap
 }
   \item{extendRange}{
@@ -71,6 +71,12 @@ the gradient color used by data track heatmap
 }
   \item{ncolor}{
 the number of color levels
+}
+  \item{ylim}{
+the range for plotting the data.
+}
+  \item{th}{
+the quantile threshold used to remove outlier, which affects the plot color ranges.
 }
   \item{main}{
 the title of the plot

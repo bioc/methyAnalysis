@@ -618,8 +618,10 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	dist2tss[as.vector(strand(tss[nearestInd])) == '-'] <- dist2tss[as.vector(strand(tss[nearestInd])) == '-'] * -1
 	values(grange)$nearestTx <- values(tss[nearestInd])$tx_name
 	values(grange)$distance2TSS <- dist2tss
-	values(grange)$EntrezID <- tx2gene[values(grange)$nearestTx]
-	values(grange)$GeneSymbol <- probe2gene(values(grange)$EntrezID, lib=EntrezDB, collapse=TRUE)
+	if (is.null(values(grange)$EntrezID))
+		values(grange)$EntrezID <- tx2gene[values(grange)$nearestTx]
+	if (is.null(values(grange)$GeneSymbol))
+		values(grange)$GeneSymbol <- probe2gene(values(grange)$EntrezID, lib=EntrezDB, collapse=TRUE)
 
 	## mark promoter based on distance to TSS
 	promoterStatus <- rep(FALSE, length(dist2tss))

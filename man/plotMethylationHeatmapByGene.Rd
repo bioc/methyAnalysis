@@ -8,10 +8,10 @@ plot methylation heatmap by genes
 }
 \usage{
 plotMethylationHeatmapByGene(selGene, methyGenoSet, gene2tx = NULL, tx2exon = NULL, expression.tx = NULL, expression.exon = NULL, 
-	phenotype = NULL, sortBy=c('expression', 'methylation', NA), renameExon = FALSE, showAllTx = TRUE, useBetaValue = TRUE, 
-	includeGeneBody = F, CpGInfo = NULL, genomicFeature = NULL, phenoColor = NULL, th = 0.99, title.suffix = NULL, addLegend = TRUE, 
-	methylationLegendTitle = NULL, expressionLegendTitle = "Expression\n(log2-RPKM)", gradient = c("blue", "white", "red"), 
-	ncolor = 16, main = NULL, newPlot = TRUE, ...)
+	phenoData = NULL, sortBy=c('expression', 'methylation', NA), renameExon = FALSE, showAllTx = TRUE, useBetaValue = TRUE, 
+	includeGeneBody = FALSE, CpGInfo = NULL, genomicFeature = NULL, phenoColor = list(gradient=c("green", "black", "red")), th = 0.99, 
+	title.suffix = NULL, addLegend = TRUE, methylationLegendTitle = NULL, expressionLegendTitle = "Expression\n(log2-RPKM)", 
+	gradient = c("blue", "white", "red"), ncolor = 16, main = NULL, newPlot = TRUE, ...)
 }
 \arguments{
   \item{selGene}{
@@ -32,8 +32,8 @@ an ExpressionSet or data matrix for transcript expression
   \item{expression.exon}{
 an ExpressionSet or data matrix for exon expression
 }
-  \item{phenotype}{
-a data.frame for phenotype information
+  \item{phenoData}{
+a data.frame for phenoData information
 }
   \item{sortBy}{
 whether to sort samples based on the mean of expression profiles, methylation cluster or NA (no sorting)
@@ -57,7 +57,7 @@ a bed file or GRanges for CpG island information
 used by buildAnnotationTracks function
 }
   \item{phenoColor}{
-a list of colors corresponding to phenotype
+a list of colors corresponding to phenoData
 }
   \item{th}{
 the quantile threshold used to remove outlier, which affects the plot color ranges.
@@ -111,11 +111,12 @@ data('exampleMethyGenoSet')
 if (require(TxDb.Hsapiens.UCSC.hg19.knownGene)) {
   genomicFeature <- 'TxDb.Hsapiens.UCSC.hg19.knownGene'
   selGene <- '1826'
-  plotMethylationHeatmapByGene(selGene, methyGenoSet=exampleMethyGenoSet, phenotype=pData(exampleMethyGenoSet), genomicFeature=genomicFeature)
+  plotMethylationHeatmapByGene(selGene, methyGenoSet=exampleMethyGenoSet, phenoData=pData(exampleMethyGenoSet), genomicFeature=genomicFeature)
 
   ## use different color map for expression data
   es.example <- matrix(runif(ncol(exampleMethyGenoSet), max=10), nrow=1)
   rownames(es.example) <- selGene
+  colnames(es.example) <- sampleNames(exampleMethyGenoSet)
   plotMethylationHeatmapByGene(selGene, methyGenoSet=exampleMethyGenoSet, expression.tx=es.example, genomicFeature=genomicFeature, phenoColor=list(gradient=c("green", "black", "red")))
 }
 

@@ -34,13 +34,13 @@ importFrom(genoset, GenoSet)
 importFrom(GenomicRanges, GRanges)
 importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, BiomartGeneRegionTrack, 
 	UcscTrack, DataTrack, stacks, plotTracks, coords)
-importMethodsFrom(Gviz, gene, ranges, feature, chromosome, "chromosome<-", displayPars, "displayPars<-")
+importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-", displayPars, "displayPars<-", getPar)
 
 
 exportClasses(MethyGenoSet)
 exportMethods(exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-", "unmethylated<-", "detection<-", getHistory, combine, "[", coerce, locData, "locData<-", chrNames)
 
-export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin, export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, heatmapByChromosome, plotMethylationHeatmapByGene, plotTracksWithDataTrackInfo, checkChrName
+export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin, export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, heatmapByChromosome, plotHeatmapByGene, plotMethylationHeatmapByGene, plotTracksWithDataTrackInfo, checkChrName
 )
 
 

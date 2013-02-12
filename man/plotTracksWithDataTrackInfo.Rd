@@ -7,14 +7,17 @@ plot Tracks with additional DataTrack information added to the left of the plot
 plot Tracks with additional DataTrack information added to the left of the plot
 }
 \usage{
-plotTracksWithDataTrackInfo(trackList, labels, grange2show = NULL, dataTrackName = NULL, dataInfo = NULL, dataColorMap = NULL, dataInfoRange = NULL, labelWidth = 0.1, gradient = c("blue", "white", "red"), ncolor = 16, main = "", newPlot = FALSE, ...)
+plotTracksWithDataTrackInfo(trackList, labels = NULL, grange2show = NULL, dataTrackName = NULL, dataInfo = NULL, dataColorMap = NULL,
+	dataInfoRange = NULL, dataBackground = gray(0.96), minHeatmapColumnWidth = 2, labelWidth = 0.1, 
+	gradient = c("blue", "white", "red"), ncolor = 16, main = "", newPlot = FALSE, sizes = NULL, ...)
 }
 \arguments{
   \item{trackList}{
 a list of tracks supported by \code{\link[Gviz]{plotTracks}} function
 }
   \item{labels}{
-the sample labels
+the sample labels. By default, it will use the rownames of dataTrack. It can also be a list if there are multiple dataTracks. And the list names should be consistent with dataTrack names. 
+Providing a subset of dataTrack labels is allowed. 
 }
   \item{grange2show}{
 a GRanges to indicate the plot range
@@ -23,13 +26,19 @@ a GRanges to indicate the plot range
 the name of the DataTrack
 }
   \item{dataInfo}{
-a data matrix to show the related sample information, e.g. its expression profile
+a data matrix or data.frame to show the related sample information, e.g. its expression profile
 }
   \item{dataColorMap}{
 the color map to plot the dataInfo
 }
   \item{dataInfoRange}{
 the range of dataInfo to control the range of color map
+}
+  \item{dataBackground}{
+the background color for the data tracks
+}
+  \item{minHeatmapColumnWidth}{
+the minimum width (points) of the heatmap data column 
 }
   \item{labelWidth}{
 the width of the label, which is the ratio of the entire plot width
@@ -45,6 +54,9 @@ the title of the plot
 }
   \item{newPlot}{
 whether to create a new plot or add it to previous plot
+}
+  \item{sizes}{
+the track sizes used by plotTracks function
 }
   \item{\dots}{
 other parameters used by plotTracks

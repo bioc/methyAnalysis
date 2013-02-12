@@ -201,7 +201,9 @@ setAs("MethyGenoSet", "MethyLumiM", function(from) {
 	chrInfo <- data.frame(CHROMOSOME=as.character(space(locdata)), POSITION=start(locdata))
 
 	methyLumiM <- new('MethyLumiM', phenoData=phenoData(from), annotation=annotation(from), exprs=exprs(from), 
-		methylated=methylated(from), unmethylated=unmethylated(from), detection=detection(from))
+			methylated=methylated(from), unmethylated=unmethylated(from))
+	assayData(methyLumiM) <- assayData(from)		
+	dataType(methyLumiM) <- 'M'
 	if (ncol(oldFeatureData) > 0) {
 		ff <- data.frame(chrInfo, oldFeatureData)
 	}	else {

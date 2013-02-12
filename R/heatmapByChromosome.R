@@ -6,6 +6,7 @@ createTranscriptTrack <- function(gene,
 				lib='org.Hs.eg.db', 
 				genome='hg19', 
 				extendRange=c(2000, 2000), 
+				includeOtherGene=FALSE,
 				includeGeneBody=TRUE, 
 				thinBox_utrOnly=FALSE,
 				background.title='gray', 
@@ -21,6 +22,29 @@ createTranscriptTrack <- function(gene,
 		warning('Current version can only support one gene per plot! \n Only the first gene was used!\n')
 		gene <- gene[1]
 	}
+
+	## convert genomicFeature library as TranscriptDb 
+	if (is.character(genomicFeature)) {
+		if(!require(genomicFeature, character.only = TRUE)) {
+			warning(paste(genomicFeature, 'library is not installed!'))
+			genomicFeature <- NULL
+		} else {
+			genomicFeature <- get(genomicFeature)
+		}
+	}
+
+	## return whole genome if gene is deliberately set as NULL
+	if (grepl('^chr', gene) && is(genomicFeature, 'TranscriptDb')) {
+		if (length(grep('^chr', seqlevels(genomicFeature), ignore.case=TRUE)) == 0) {
+			options(ucscChromosomeNames=FALSE)
+			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=checkChrName(gene, addChr=FALSE), showId=TRUE)
+		} else {
+			options(ucscChromosomeNames=TRUE)
+			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=gene, showId=TRUE)
+		}
+		return(genomicFeature)
+	}
+	
 	if (is(gene, 'GRanges')) {
 		grange2show <- gene
 		gene <- names(gene)
@@ -32,15 +56,6 @@ createTranscriptTrack <- function(gene,
 	chromosome <- checkChrName(chromosome, addChr=TRUE)	
 
 	## identify related transcripts
-	if (is.character(genomicFeature)) {
-		if(!require(genomicFeature, character.only = TRUE)) {
-			warning(paste(genomicFeature, 'library is not installed!'))
-			genomicFeature <- NULL
-		} else {
-			genomicFeature <- get(genomicFeature)
-		}
-	}
-
 	## convert TranscriptDb as "GeneRegionTrack" first
 	if (is(genomicFeature, 'TranscriptDb')) {
 		if (length(grep('^chr', seqlevels(genomicFeature), ignore.case=TRUE)) == 0) {
@@ -80,14 +95,24 @@ createTranscriptTrack <- function(gene,
 				ee <- max(rr) + extendRange[2]
 			} else {
 				## only retrieve the region surrounding TSS
-				selTrans <- selTrans[feature(genomicFeature)[selInd] == 'utr5']
-				tss <- ifelse(as.character(strand(selTrans)) == '-', end(selTrans), start(selTrans))
+				rr <- ranges(genomicFeature[selInd])
+				if (!is.null(values(rr)$transcript)) {
+					tss <- unlist(sapply(split(rr, values(rr)$transcript), function(x) {
+						tss.x <- ifelse(as.character(strand(x)[1]) == '-', max(end(x)), min(start(x)))
+					}))
+				} else {
+					utr5.ind <- which(tolower(feature(genomicFeature)[selInd]) == 'utr5')
+					if (length(utr5.ind) > 0) selTrans <- selTrans[utr5.ind]
+					tss <- ifelse(as.character(strand(selTrans)) == '-', end(selTrans), start(selTrans))
+				}
 				ss <- min(tss) - extendRange[1]
 				ee <- max(tss) + extendRange[2]
 			}
 			grange2show <- GRanges(seqnames=chromosome, strand='*', ranges=IRanges(start=ss, end=ee))
+			if (includeOtherGene) 
+				transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show))]
 		} else {
-			transTrack <- genomicFeature[ranges(genomicFeature) %in% grange2show]
+			transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show))]
 		}
 	}
 		
@@ -199,6 +224,10 @@ buildAnnotationTracks <- function(
 	} else if (require(lib, character.only=TRUE)) {
 		chromosome <- lookUp(gene, lib, 'CHR')[[1]]
 	}
+	if (is.na(chromosome)) {
+		return(NULL)
+	}
+	
 	chromosome <- checkChrName(chromosome, addChr=TRUE)
 		
 	## create annotation tracks
@@ -237,7 +266,7 @@ buildAnnotationTracks <- function(
 
 	if (is(CpGInfo, 'GRanges')) {
 		values(CpGInfo) <- DataFrame(values(CpGInfo), feature='CpG_island', id=1:length(CpGInfo)) 
-		cpgTrack <- AnnotationTrack(CpGInfo, chromosome=chromosome, genome=genome, name='CGI') # , cex.title=0.8)
+		cpgTrack <- AnnotationTrack(CpGInfo, chromosome=chromosome, genome=genome, name='CpG Island') # , cex.title=0.8)
 		allTracks <- c(allTracks, list(cpgTrack))
 	}
 
@@ -255,25 +284,17 @@ buildAnnotationTracks <- function(
 
 
 
-## require(Gviz)
-## library(GenomicRanges)
-## library(rtracklayer) # import.bed
-## library(GenomicFeatures) # TranscriptDb
-### importFrom(GenomicFeatures, 'exons', )
-### importFrom(annoate, lookUp)
-## library(genoset) # GenoSet, locData
 
 heatmapByChromosome <- function(
-					methyGenoSet, 				# GenoSet object	
+					genoSet, 				# GenoSet object	
 					gene, 								# Entrez gene ids or a GRanges object with length equals one
 					annotationTracks=NULL,
 					otherTrackList=NULL, 	# other Tracks objects supported by Gviz
-					expProfile=NULL, 			# Expression profile
-					# expProfileColors=NULL, # a phenotype data.frame (required for legend) or color vector
-					expColorMap = NULL,	# a list of colormaps for every column-side rows
+					phenoData=NULL, 			# Expression profile
+					phonoColorMap = NULL,	# a list of colormaps for every column-side rows
 					extendRange=c(2000, 2000), # extended range on each side of the	gene
 					includeGeneBody=TRUE, # wether to include genebody of the provided gene
-					showFullModel=FALSE, # only valid when includeGeneBody is FALSE
+					showFullModel=TRUE, # only valid when includeGeneBody is FALSE
 					sortSample=TRUE,			# whether to sort samples based on intensity profiles
 					cytobandInfo=NULL,		# cytoband information, 
 					CpGInfo=NULL,					# CpG-island information, GRanges or bed file are supported
@@ -284,6 +305,8 @@ heatmapByChromosome <- function(
 					genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
 					gradient=c("blue", "white", "red"), # gradient color map
 					ncolor=16, 						# number of color levels
+					ylim=NULL,
+					th=0.99,
 					main='',							# title
 					... ) {
 	
@@ -292,25 +315,65 @@ heatmapByChromosome <- function(
 		warning('Current version can only support one gene per plot!')
 		gene <- gene[1]
 	}
-	if (!is.null(expProfile)) {
-		if (!is.matrix(expProfile)) {
-			expProfile <- as.matrix(expProfile)
-			if (is.null(colnames(expProfile)) && ncol(expProfile) == 1)
-				colnames(expProfile) <- 'Expression Profile'
-		}		
-		if (nrow(expProfile) != ncol(methyGenoSet)) {
-			if (ncol(expProfile) == ncol(methyGenoSet)) {
-				expProfile <- t(expProfile)
+	
+	## convert the genoSet  as a list of genoSet for more general purpose
+	if (!is.list(genoSet)) {
+		genoSetList <- list("Methylation Profile"=genoSet)
+	} else {
+		genoSetList <- genoSet
+	}
+
+	if (!all(sapply(genoSetList, function(x) is(x, 'GenoSet')))) 
+		stop('"genoSet" must be a GenoSet object or a list of GenoSet objects.')
+
+	if (is.null(ylim)) {
+		ylim <- lapply(genoSetList, function(x) {
+			if (th < 1) {
+				up.lim <- quantile(abs(assayData(x)$exprs), th, na.rm=TRUE)
+				ylim <- c(-up.lim, up.lim)
 			} else {
-				stop('The dimension of "expProfile" does not match with the methyGenoSet!')
+				max.v <- max(abs(assayData(x)$exprs))
+				ylim <- c(-max.v, max.v)
 			}
+			return(ylim)
+		})
+		ylim <- range(unlist(ylim))
+	} 
+	
+	
+	
+	if (!is.null(phenoData)) {
+		rn <- rownames(phenoData)
+		## convert the phenoData as numeric matrix
+		if (is.data.frame(phenoData) || is.list(phenoData)) {
+			phenotypeLevels <- lapply(phenoData, function(x) {
+				x <- levels(as.factor(x))
+				return(x)
+				})
+			phenoData <- data.frame(lapply(phenoData, function(x) {
+				x <- round(as.numeric(as.factor(x)))
+				if (min(x, na.rm=TRUE) <= 0) x <- x - min(x, na.rm=TRUE) + 1
+				return(x)
+				}), check.names = FALSE)
 		}
+		rownames(phenoData) <- rn
+		phenoData <- as.matrix(phenoData)
+		if (is.null(colnames(phenoData)) && ncol(phenoData) == 1)
+			colnames(phenoData) <- 'Expression Profile'
+
+		# if (nrow(phenoData) != ncol(genoSetList[[1]])) {
+		# 	if (ncol(phenoData) == ncol(genoSetList[[1]])) {
+		# 		phenoData <- t(phenoData)
+		# 	} else {
+		# 		stop('The dimension of "phenoData" does not match with the genoSet!')
+		# 	}
+		# }
 	}
 	
 	if (is.null(annotationTracks)) {
 		annotationTracks <- buildAnnotationTracks(gene=gene, extendRange=extendRange, 
 							includeGeneBody=includeGeneBody, cytobandInfo=cytobandInfo, CpGInfo=CpGInfo,
-							genomeAxis=genomeAxis, lib=lib,	genome=genome, genomicFeature=genomicFeature)
+							genomeAxis=genomeAxis, lib=lib,	genome=genome, genomicFeature=genomicFeature, ...)
 		#
 		if (is.null(annotationTracks))
 			stop('"annotationTracks" is missing!')
@@ -332,48 +395,44 @@ heatmapByChromosome <- function(
 		}
 	}
 	
-	## select related methylation data	
-	methyGenoSet <- checkChrName(methyGenoSet, addChr=TRUE)
-	grange.data <- suppressWarnings(as(locData(methyGenoSet), 'GRanges'))
-	selMethyData <- methyGenoSet[!is.na(GenomicRanges::match(grange.data, grange2show)),]
-	if (nrow(selMethyData) == 0) {
-		warning("There is no methylation data exist in the selected grange2show!")
-		return(NULL)
-	}
-	if ((sortSample || length(sortSample) == ncol(selMethyData)) && nrow(selMethyData) > 0) {
-		hcr <- hclust(dist(t(assayData(selMethyData)$exprs)))
-		ddr <- as.dendrogram(hcr)
-		if (length(sortSample) == ncol(selMethyData))
-			ddr <- reorder(ddr, sortSample)
-		ord <- order.dendrogram(ddr)
-		selMethyData <- selMethyData[,ord]
-		if (!is.null(expProfile)) {
-			if (all(sampleNames(selMethyData) %in% rownames(expProfile))) {
-				expProfile <- expProfile[colnames(selMethyData),,drop=FALSE]
-			} else {
-				expProfile <- expProfile[ord,,drop=FALSE]
-			}
+	for (i in 1:length(genoSetList)) {
+		genoSet <- genoSetList[[i]]
+		
+		## select related methylation data	
+		genoSet <- checkChrName(genoSet, addChr=TRUE)
+		grange.data <- suppressWarnings(as(locData(genoSet), 'GRanges'))
+		selMethyData <- genoSet[!is.na(GenomicRanges::match(grange.data, grange2show)),]
+		if (nrow(selMethyData) == 0) {
+			warning("There is no methylation data exist in the selected grange2show!")
+			return(NULL)
 		}
+		if ((sortSample || length(sortSample) == ncol(selMethyData)) && nrow(selMethyData) > 0 && ncol(selMethyData) > 1) {
+			hcr <- hclust(dist(t(assayData(selMethyData)$exprs)))
+			ddr <- as.dendrogram(hcr)
+			if (length(sortSample) == ncol(selMethyData))
+				ddr <- reorder(ddr, sortSample)
+			ord <- order.dendrogram(ddr)
+			selMethyData <- selMethyData[,ord]
+		}
+
+		## define data track
+		dTrack <- DataTrack(range=suppressWarnings(as(locData(selMethyData), 'GRanges')), data=t(assayData(selMethyData)$exprs), 
+			chromosome=chromosome, name=dataTrackName, type='heatmap',	gradient=gradient, ncolor=ncolor)		
+		
+		names(dTrack) <- names(genoSetList)[i]
+		allTracks <- c(allTracks, list(dTrack))
 	}
-	
-	## define data track
-	dTrack <- DataTrack(range=suppressWarnings(as(locData(selMethyData), 'GRanges')), data=t(assayData(selMethyData)$exprs), 
-		chromosome=chromosome, name=dataTrackName, type='heatmap',	gradient=gradient, ncolor=ncolor)		
-	allTracks <- c(allTracks, list(dTrack))
 
 	if (!includeGeneBody && showFullModel) {
-	
 		## remove IdeogramTrack if exists
 		allTracks <- allTracks[sapply(allTracks, class) != 'IdeogramTrack']
 		
 		## estimate the space of tracks
-		allTracks <- lapply(allTracks, subset, from=start(grange2show), to=end(grange2show), chromosome=chromosome)
-    allTracks <- lapply(allTracks, Gviz:::setStacks, from=start(grange2show), to=end(grange2show))
-    
-		spaceSetup <- Gviz:::.setupTextSize(allTracks, sizes=NULL)
+		trackHeights <- .estimateTrackHeight(allTracks, grange2show)
 		geneModelTrackInd <- which(sapply(allTracks, class) == 'GeneRegionTrack')
-		geneModelHeight <- spaceSetup$spaceNeeded[geneModelTrackInd]
-		
+		geneModelHeight <- trackHeights[geneModelTrackInd]
+
+		if (geneModelHeight < 0.1) geneModelHeight <- 0.1
 		if (main != '' && !is.null(main)) geneModelHeight <- geneModelHeight + 0.05
 		layout.height <- c(geneModelHeight/(1.05+geneModelHeight), 0.05/(1.05+geneModelHeight), 1/(1.05+geneModelHeight))
 		pushViewport(viewport(layout=grid.layout(3, 1, heights=layout.height)))
@@ -386,13 +445,15 @@ heatmapByChromosome <- function(
 		if (length(axisTrackInd) > 0) {
 			displayPars(allTracks[[axisTrackInd]])$littleTicks <- TRUE
 		}
+		names(allTracks[[geneModelTrackInd]]) <- 'TSS Gene Model'
 		## plot Tracks with annotation of DataTrack
-		plotInfo <- plotTracksWithDataTrackInfo(allTracks, sampleNames(selMethyData), grange2show=grange2show, dataInfo=expProfile, dataColorMap=expColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, ...)
+		plotInfo <- plotTracksWithDataTrackInfo(allTracks, grange2show=grange2show, dataInfo=phenoData, 
+			dataColorMap=phonoColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, ylim=ylim, ...)
 		popViewport(1)
 
 		pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
 		geneModelTrack <- allTracks[[geneModelTrackInd]]
-		names(geneModelTrack) <- 'Full Model'
+		names(geneModelTrack) <- 'Full Gene Model'
 		start.range <- min(start(geneModelTrack)) 
 		end.range <- max(end(geneModelTrack))
 		start.range <- start.range - (end.range - start.range) / 5
@@ -406,37 +467,47 @@ heatmapByChromosome <- function(
 		totalWidth <- X1 - X0
 		totalHeight <- Y1 - Y0
 		
-		## retrieve the plot coordinates		
+		# retrieve the plot coordinates		
 		plotLoc.fullModel <- coords(plotInfo.fullModel$title)
 		margin.x <- (plotLoc.fullModel[1, 'x1'] - X0)/totalWidth
 		plotWidth <- (X1 - plotLoc.fullModel[1, 'x2'])/totalWidth - 2*margin.x
-		x0 <- (plotLoc.fullModel[1, 'x2'] - X0)/totalWidth + margin.x
-		y1 <- (plotLoc.fullModel[1, 'y1'] - Y0)/totalHeight
-		plotHeight <- (plotLoc.fullModel[1, 'y2'] - plotLoc.fullModel[1, 'y1'])/totalHeight
+		x0 <- abs(plotLoc.fullModel[1, 'x2'] - X0)/totalWidth + margin.x
+		y1 <- 0.01
+		plotHeight <- 0.98
+		# y1 <- abs(plotLoc.fullModel[1, 'y1'] - Y0)/totalHeight
+		# plotHeight <- abs(plotLoc.fullModel[1, 'y2'] - plotLoc.fullModel[1, 'y1'])/totalHeight
+		# if (y1 >= 0.01) y1 <- 0.05
+		# if (plotHeight + y1 >= 0.95) plotHeight <- 0.95 - y1
 		showRegion <- end(grange2show) - start(grange2show)
 		x1 <- x0 + plotWidth * (start(grange2show) - start.range)/(end.range - start.range)
+		if (x1 < x0) x1 <- x0
+		
 		rect.width <- plotWidth * (end(grange2show) - start(grange2show))/(end.range - start.range)
-		grid.rect(x1, y1, width=rect.width, height=plotHeight, gp=gpar(col=2, lwd=2, alpha=0.5), just=c('left', 'bottom'))
+		if (x1 + rect.width > 1) rect.width <- 1 - x1 
+		grid.rect(x1, y1, width=rect.width, height=plotHeight, gp=gpar(col=2, lwd=1.5, alpha=0.3, lty=2), just=c('left', 'bottom'))
 		x1.points <- as.numeric(convertX(unit(x1, 'npc'), 'points'))
 		x2.points <- as.numeric(convertX(unit(x1 + rect.width, 'npc'), 'points'))
 		y1.points <- y2.points <- as.numeric(convertY(unit(1 - y1, 'npc'), 'points'))
 
 		popViewport(2)
-
+		x1.npc <- convertX(unit(x1.points, 'points'), 'npc')
+		x2.npc <- convertX(unit(x2.points, 'points'), 'npc')
+		y1.npc <- y2.npc <- convertY(unit(y1.points, 'points'), 'npc')
 		## plot dash lines to the zoom-in region
 		zoominCor <- coords(plotInfo$title)
-		x1.zm <- zoominCor[1, 'x2']
-		y1.zm <- y2.zm <- zoominCor[1, 'y1']
-		x2.zm <- as.numeric(convertX(unit(1 - plotInfo$labelWidth, 'npc'), 'points'))
-		totalHeight <- as.numeric(convertY(unit(1, 'npc'), 'points'))
-		grid.lines(x=c(x1.points, x1.zm), y=totalHeight-c(y1.points,y1.zm), default.units='points', gp=gpar(col=2, lty=2))
-		grid.lines(x=c(x2.points, x2.zm), y=totalHeight-c(y2.points,y2.zm), default.units='points', gp=gpar(col=2, lty=2))
+		x1.zm <- convertX(unit(zoominCor[1, 'x2'], 'points'), 'npc')
+		#y1.zm <- y2.zm <- as.numeric(convertY(unit(zoominCor[1, 'y1'], 'points'), 'npc')) # - 0.01
+		y1.zm <- y2.zm <- sum(layout.height[1:2])
+		x2.zm <- 1 - plotInfo$labelWidth
+		grid.lines(x=c(x1.npc, x1.zm), y=1-c(y1.npc,y1.zm), default.units='npc', gp=gpar(col=2, lty=2))
+		grid.lines(x=c(x2.npc, x2.zm), y=1-c(y2.npc,y2.zm), default.units='npc', gp=gpar(col=2, lty=2))
 
 		newPlotInfo <- list(fullModel=plotInfo.fullModel, main=plotInfo, layout.height=layout.height)
 		plotInfo <- newPlotInfo
 	} else {
 		## plot Tracks with annotation of DataTrack
-		plotInfo <- plotTracksWithDataTrackInfo(allTracks, sampleNames(selMethyData), grange2show=grange2show, dataInfo=expProfile, dataColorMap=expColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, main=main, ...)
+		plotInfo <- plotTracksWithDataTrackInfo(allTracks,  grange2show=grange2show, dataInfo=phenoData, 
+				dataColorMap=phonoColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, main=main, ylim=ylim, ...)
 	}
 
 	return(invisible(plotInfo))
@@ -450,7 +521,7 @@ heatmapByChromosome <- function(
 ##	 tx2exon: a transcript to exon mapping list, used for retrieving expression.exon data
 ##	 expression.tx: an ExpressionSet or data matrix for transcript expression
 ##	 expression.exon: an ExpressionSet or data matrix for exon expression
-##	 phenotype: an ExpressionSet or data.frame for phenotype informaiton
+##	 phenoData: an ExpressionSet or data.frame for phenotype informaiton
 ##	 sortBy: sort the samples based on expression, methylation or NA (not sort)
 ##	 renameExon: whether to rename exons as "exon1_transcript"
 ##	 showAllTx: whether to show all transcript in gene2tx or just those provided in selGene
@@ -458,12 +529,18 @@ heatmapByChromosome <- function(
 ##	 CpGInfo: a bed file or GRanges for CpG island information
 ##	 genomicFeature: used by buildAnnotationTracks function
 ##	 phenoColor: a vector of colors for pheno types.
-plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx2exon=NULL, expression.tx=NULL, expression.exon=NULL, 
-	phenotype=NULL, sortBy=c('expression', 'methylation', NA), renameExon=FALSE, showAllTx=TRUE, useBetaValue=TRUE, includeGeneBody=F, CpGInfo=NULL, genomicFeature=NULL, 
-	phenoColor=NULL, th=0.99, title.suffix=NULL, addLegend=TRUE, methylationLegendTitle=NULL, expressionLegendTitle='Expression\n(log2-RPKM)', gradient=c("blue", "white", "red"), 
+plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx2exon=NULL, expression.tx=NULL, expression.exon=NULL,  
+	phenoData=NULL, sortBy=c('expression', 'methylation', NA), renameExon=FALSE, showAllTx=TRUE, useBetaValue=TRUE, includeGeneBody=FALSE,  
+	CpGInfo=NULL, genomicFeature=NULL, phenoColor=list(gradient=c("green", "black", "red")), th=0.99, title.suffix=NULL, addLegend=TRUE, 
+	methylationLegendTitle=NULL, expressionLegendTitle='Expression\n(log2-RPKM)', gradient=c("blue", "white", "red"), 
 	ncolor=16, main=NULL, newPlot=TRUE, ...) {
-  sortBy <- as.character(sortBy)
+		
+	sortBy <- as.character(sortBy)
 	sortBy <- match.arg(sortBy)
+	if(is.na(sortBy)) sortBy <- 'NA'
+
+	if (!is(methyGenoSet, 'GenoSet')) 
+		stop('"methyGenoSet" must be a GenoSet object.')
 	
 	if (useBetaValue) {
 		methyGenoSet <- estimateBeta(methyGenoSet)
@@ -550,28 +627,31 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 	}
 
 	phenotypeLevels <- NULL
-	if (!is.null(phenotype)) {
-		if (is(phenotype, "ExpressionSet")) {
-			phenotype <- exprs(phenotype)
+	if (!is.null(phenoData)) {
+		if (is(phenoData, "ExpressionSet")) {
+			phenoData <- exprs(phenoData)
 		} 
-		if (is.data.frame(phenotype) || is.list(phenotype)) {
-			phenotypeLevels <- lapply(phenotype, function(x) {
+		rn <- rownames(phenoData)
+		## convert the phenoData as numeric matrix
+		if (is.data.frame(phenoData) || is.list(phenoData)) {
+			phenotypeLevels <- lapply(phenoData, function(x) {
 				x <- levels(as.factor(x))
 				return(x)
 				})
-			phenotype <- as.data.frame(lapply(phenotype, function(x) {
+			phenoData <- data.frame(lapply(phenoData, function(x) {
 				x <- round(as.numeric(as.factor(x)))
 				if (min(x, na.rm=TRUE) <= 0) x <- x - min(x, na.rm=TRUE) + 1
 				return(x)
-				}))
+				}), check.names = FALSE)
 		}
+		rownames(phenoData) <- rn
 
-		otherPhenoName <- colnames(phenotype)
+		otherPhenoName <- colnames(phenoData)
 		otherPhenoName <- otherPhenoName[!(otherPhenoName %in% names(phenoColor))]
 		if (length(otherPhenoName) > 0) {
 			allPhenoName <- names(phenoColor)
 			for (phenoName.i in otherPhenoName) {
-				maxLevel.i <- max(phenotype[[phenoName.i]], na.rm=TRUE)
+				maxLevel.i <- max(phenoData[[phenoName.i]], na.rm=TRUE)
 				if (maxLevel.i <= 6) {
 					phenoColor <- c(phenoColor, list(1:maxLevel.i))
 					allPhenoName <- c(allPhenoName, phenoName.i)
@@ -580,7 +660,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			names(phenoColor) <- allPhenoName
 		}		
 	}
-	
+
 	plotResult <- lapply(1:length(sigGene2tx), function(i) {
 	
 		gene.i <- selGene[i] # '728591' # '63951'
@@ -656,19 +736,16 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			## sort only based on significant Tx
 			ord <- order(rowMeans(expProfile[,sigTx,drop=FALSE], na.rm=TRUE), decreasing=FALSE)
 		}
-		
-		if (!is.null(phenotype)) {
-			## combine the phenotype with the expProfile matrix
-			expProfile <- cbind(expProfile, as.matrix(phenotype))
+		## combine phenoData with expProfile if both exist
+		if (!is.null(phenoData)) {
+			## combine the phenoData with the expProfile matrix
+			if (!is.null(expProfile)) {
+				expProfile <- cbind(expProfile, as.matrix(phenoData))
+			} else {
+				expProfile <- as.matrix(phenoData)
+			}
 		}
 
-		phenotypeLevel.i <- NULL
-		if (!is.null(phenotypeLevels)) {	
-			if (selTx[i] %in% names(phenotypeLevels)) {
-				phenotypeLevel.i <- phenotypeLevels[[selTx[i]]]
-			} 
-		} 
-		
 		## ------------------------------------
 		## plot the heatmap of gene.i
 		if (!is.null(title.suffix)) {
@@ -690,15 +767,15 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			pushViewport(viewport(layout=grid.layout(1, 3, widths=layout.width)))
 			pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
 		} 
-		
+
 		if (sortBy == 'expression' && !is.null(expProfile)) {
-			plotInfo <- heatmapByChromosome(methyGenoSet[, ord,drop=F],	gene.i,	annotationTracks=annotationTracks, expProfile=expProfile[ord,,drop=F], 
-																 expColorMap=phenoColor, sortSample=F, dataTrackName='Methylation Profile', main=main, 
+			plotInfo <- heatmapByChromosome(methyGenoSet[, ord,drop=F],	gene.i,	annotationTracks=annotationTracks, phenoData=expProfile[ord,,drop=F], 
+																 phonoColorMap=phenoColor, sortSample=F, dataTrackName='Methylation Profile', main=main, 
 																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)
 		} else {
 			sortSample <- ifelse(sortBy == 'methylation', TRUE, FALSE)
-			plotInfo <- heatmapByChromosome(methyGenoSet,	gene.i,	annotationTracks=annotationTracks, expProfile=expProfile, 
-																 expColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, 
+			plotInfo <- heatmapByChromosome(methyGenoSet,	gene.i,	annotationTracks=annotationTracks, phenoData=expProfile, 
+																 phonoColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, 
 																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)
 		}
 		
@@ -716,7 +793,9 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			} else {
 				legendHeight <- (1 -	(2 + numOfOtherLegend) * 0.05) / (2 + numOfOtherLegend)
 			}
-			x0 <- 0.15 # 0.15 ## starting plotting point in x-axis
+			if (legendHeight > 1/8) legendHeight <- 1/8
+			
+			x0 <- 0.1 # 0.15 ## starting plotting point in x-axis
 			colWidth <- 0.15
 			
 			## plot methylation legend
@@ -739,7 +818,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			grid.text(ytickLabel, x=x0 + colWidth + 0.08, y=ytickPos, just=c("left", "center"), default.units = "npc", gp=gpar(fontsize=fontsize))
 			## add legend title
 			if (is.null(methylationLegendTitle)) {
-				methylationLegendTitle <- c('Methylation', ifelse(useBetaValue, '(Beta-value)', '(M-value)'))
+				methylationLegendTitle <- c('Methylation', ifelse(useBetaValue, '(Beta value)', '(M value)'))
 			} else {
 				methylationLegendTitle <- strsplit(methylationLegendTitle, '\n')[[1]]
 			}
@@ -779,10 +858,12 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			}
 
 			## Add other phenoColor legends
-			if (length(phenoColor) > 0) {
+			if (numOfOtherLegend > 0) {
+		
+				phenoColor <- phenoColor[names(phenoColor) != 'gradient']
 				## calculate the stepHeight based on font size,which is defined by the number of color levels
 				totalLevel <- length(unlist(phenotypeLevels))
-				if (!is.null(expProfile)) {
+				if (!is.null(expProfile.range)) {
 					ystart <- 1 - (0.1 + legendHeight * 4 )
 				} else {
 					ystart <- 1 - (0.1 + legendHeight * 2 )
@@ -814,6 +895,9 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 				}
 			}
 			
+			## plot rectangle around legend
+			grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1), default.units="npc", just=c("left", "top"))
+			
 			plotInfo <- c(plotInfo, layout.width=layout.width)
 			popViewport(1)
 		}			
@@ -823,54 +907,240 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 	return(invisible(plotResult))		
 }
 
-# grid.legend.general <- function (labels, fill, line, pch, frame = TRUE, hgap = unit(0.5, "lines"), 
-#		 vgap = unit(0.5, "lines"), default.units = "lines", gp = gpar(), 
-#		 draw = TRUE, vp = NULL) 
-# {
-#		 labels <- as.character(labels)
-#		 nkeys <- length(labels)
-#		 if (length(pch) != nkeys) 
-#				 stop("'pch' and 'labels' not the same length")
-#		 if (!is.unit(hgap)) 
-#				 hgap <- unit(hgap, default.units)
-#		 if (length(hgap) != 1) 
-#				 stop("'hgap' must be single unit")
-#		 if (!is.unit(vgap)) 
-#				 vgap <- unit(vgap, default.units)
-#		 if (length(vgap) != 1) 
-#				 stop("'vgap' must be single unit")
-#		 legend.layout <- grid.layout(nkeys, 3, widths = unit.c(unit(2, 
-#				 "lines"), max(unit(rep(1, nkeys), "strwidth", as.list(labels))), 
-#				 hgap), heights = unit.pmax(unit(2, "lines"), vgap + unit(rep(1, 
-#				 nkeys), "strheight", as.list(labels))))
-#		 fg <- frameGrob(layout = legend.layout, vp = vp, gp = gp)
-#		 for (i in 1L:nkeys) {
-#				 fg <- placeGrob(fg, pointsGrob(0.5, 0.5, pch = pch[i]), 
-#						 col = 1, row = i)
-#				 fg <- placeGrob(fg, textGrob(labels[i], x = 0, y = 0.5, 
-#						 just = c("left", "centre")), col = 2, row = i)
-#		 }
-#		 if (draw) 
-#				 grid.draw(fg)
-#		 fg
-# }
 
-plotTracksWithDataTrackInfo <- function(trackList, labels, grange2show=NULL, dataTrackName=NULL, dataInfo=NULL, 
-			dataColorMap=NULL, dataInfoRange=NULL, labelWidth=0.1, gradient=c("blue", "white", "red"), ncolor=16, main='', newPlot=FALSE, ...) {
-	
-	if (missing(trackList) || missing(labels)) {
-		stop('Please provide "trackList" and "labels"!')
+
+
+plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'phenoData', 'data'), includeGeneBody=FALSE,  sortByTx=FALSE,
+	CpGInfo=NULL, genomicFeature=NULL, phenoColor=list(gradient=c("green", "black", "red")), title.suffix=NULL, addLegend=TRUE, 
+	genoSetLegendTitle=NULL, gradient=c("blue", "white", "red"), ncolor=16, main=NULL, newPlot=TRUE, ylim=NULL, ...) {
+		
+	sortBy <- as.character(sortBy)
+	sortBy <- match.arg(sortBy)
+	if(is.na(sortBy)) sortBy <- 'NA'
+	if (length(selGene) > 1) {
+		warnings('Only the first gene will be plotted!')
+		selGene <- selGene[1]
 	}
+	
+	if (!is.list(genoSet)) {
+		genoSetList <- list(genoSet)
+	} else {
+		genoSetList <- genoSet
+	}
+	if (!all(sapply(genoSetList, function(x) is(x, 'GenoSet')))) 
+		stop('"genoSet" must be a GenoSet object or a list of GenoSet objects.')
+	if (is.null(ylim)) {
+		ylim <- range(unlist(lapply(genoSetList, function(x) range(assayData(x)$exprs))))
+	}
+	
+	phenotypeLevels <- NULL
+	if (!is.null(phenoData)) {
+		if (is(phenoData, "ExpressionSet")) {
+			phenoData <- exprs(phenoData)
+		} 
+		rn <- rownames(phenoData)
+		if (is.data.frame(phenoData) || is.list(phenoData)) {
+			phenotypeLevels <- lapply(phenoData, function(x) {
+				x <- levels(as.factor(x))
+				return(x)
+				})
+			phenoData <- data.frame(lapply(phenoData, function(x) {
+				x <- round(as.numeric(as.factor(x)))
+				if (min(x, na.rm=TRUE) <= 0) x <- x - min(x, na.rm=TRUE) + 1
+				return(x)
+				}), check.names = FALSE)
+		}
+		rownames(phenoData) <- rn
+
+		otherPhenoName <- colnames(phenoData)
+		otherPhenoName <- otherPhenoName[!(otherPhenoName %in% names(phenoColor))]
+		if (length(otherPhenoName) > 0) {
+			allPhenoName <- names(phenoColor)
+			for (phenoName.i in otherPhenoName) {
+				maxLevel.i <- max(phenoData[[phenoName.i]], na.rm=TRUE)
+				if (maxLevel.i <= 6) {
+					phenoColor <- c(phenoColor, list(1:maxLevel.i))
+					allPhenoName <- c(allPhenoName, phenoName.i)
+				}
+			}
+			names(phenoColor) <- allPhenoName
+		}		
+	}
+	
+	annotationTracks <- buildAnnotationTracks(gene=selGene, includeGeneBody=includeGeneBody, CpGInfo=CpGInfo, genomicFeature=genomicFeature, ...)
+	
+	## sort the transcript based on annotation track
+	geneRegionTrack <- annotationTracks[sapply(annotationTracks, class) == 'GeneRegionTrack'][[1]]
+	## estimate the order of transcripts in the geneRegionTrack
+	grange2show <- attr(annotationTracks, 'grange2show')
+	grange2show <- checkChrName(grange2show, addChr=TRUE)
+	chromosome <- as.character(seqnames(grange2show))[1]
+	if (sortByTx) {
+		geneRegionTrack <- .estimateStackLocation(geneRegionTrack, from=start(grange2show)[1], to=end(grange2show)[1], chromosome=chromosome)
+		annTx <- split(values(geneRegionTrack)$transcript, stacks(geneRegionTrack))
+		annTx <- rev(unique(as.character(unlist(annTx))))
+		genoSetList <- lapply(genoSetList, function(x) {
+			x.name <- sampleNames(x)
+			ind <- 1:length(x.name)
+			names(ind) <- x.name
+			x.name.ord <- c(annTx[annTx %in% x.name], x.name[!(x.name %in% annTx)])
+			x <- x[,ind[x.name.ord]]
+		})
+	}
+
+	## ------------------------------------
+	## plot the heatmap of selGene
+	symbol <- unlist(lookUp(selGene, 'org.Hs.eg.db', 'SYMBOL'))
+	if (!is.null(title.suffix)) {
+		title <- paste(symbol, ' (', title.suffix, ')', sep='')
+	} else {
+		title <- paste(symbol, ' (GeneID:', selGene, ')', sep='')
+	}
+	cat("Ploting ", title, '\n')
+	
+	if (is.null(main)) main <- title
+	
+	## plotting legend
+	if (newPlot) grid.newpage()
+	if (addLegend) {
+		legendWidth <- 0.12 
+		sepWidth <- 0.08
+		plotWidth <- 1 - legendWidth - sepWidth
+		layout.width <- c(plotWidth, sepWidth, legendWidth)
+		pushViewport(viewport(layout=grid.layout(1, 3, widths=layout.width)))
+		pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
+	} 
+	
+	sortSample <- ifelse(sortBy == 'methylation', TRUE, FALSE)
+	plotInfo <- heatmapByChromosome(genoSetList, selGene, annotationTracks=annotationTracks, phenoData=phenoData, 
+				 phonoColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, ylim=ylim,
+				 cex.main=1, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)
+	
+	## plot legendInfo
+	if (addLegend) {
+		
+		popViewport(1)
+		## plot legend information
+		pushViewport(viewport(layout.pos.col=3, layout.pos.row=1))
+		
+		## determine the height of legends
+		## the height of genoSet data 
+		numOfOtherLegend <- length(which(names(phenoColor) != 'gradient'))
+		legendHeight <- (1 - (1 + numOfOtherLegend) * 0.05) / (1 + numOfOtherLegend)
+		if (legendHeight > 1/8) legendHeight <- 1/8
+		x0 <- 0.1 # 0.15 ## starting plotting point in x-axis
+		colWidth <- 0.15
+		
+		## plot genoset data legend
+		stepHeight <- legendHeight * 2 * 0.9 / ncolor
+		ystart <- 1 - (0.05 + legendHeight * 2 )
+		methyColor <- colorRampPalette(gradient)(ncolor)[1:ncolor]
+
+		grid.rect(x0, stepHeight * (1:ncolor) + ystart, width=colWidth, height=stepHeight, 
+							gp=gpar(col=methyColor, fill=methyColor), default.units="npc", just=c("left", "top"))
+							
+		# add tick information
+		ytickLabel <- round(seq(ylim[1], ylim[2], length=5), 2)
+		ytickPos <- ystart + legendHeight * 2 * 0.9 * seq(0,1,length=5)
+		grid.segments(x0 + colWidth, ytickPos, x0 + colWidth + 0.05, ytickPos, default.units = "npc")
+		## add tick labels
+		fontsize <- round(as.numeric(convertX(unit(0.8, 'npc'), 'points'))/6)
+		grid.text(ytickLabel, x=x0 + colWidth + 0.08, y=ytickPos, just=c("left", "center"), default.units = "npc", gp=gpar(fontsize=fontsize))
+		## add legend title
+		if (!is.null(genoSetLegendTitle)) {
+			genoSetLegendTitle <- strsplit(genoSetLegendTitle, '\n')[[1]]
+		}
+		grid.text(genoSetLegendTitle[1], x=0.5, y=max(ytickPos) + 0.025 + as.numeric(convertY(unit(fontsize, 'points'), 'npc')), just=c('center', 'bottom'), 
+					default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
+		if (length(genoSetLegendTitle) > 1)
+			grid.text(genoSetLegendTitle[2], x=0.5, y=max(ytickPos) + 0.02, just=c('center', 'bottom'), default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
+
+		## Add other phenoColor legends
+		if (numOfOtherLegend > 0) {
+	
+			phenoColor <- phenoColor[names(phenoColor) != 'gradient']
+			## calculate the stepHeight based on font size,which is defined by the number of color levels
+			totalLevel <- length(unlist(phenotypeLevels))
+			ystart <- 1 - (0.1 + legendHeight * 2 )
+			stepHeight <- (ystart - 0.1 * length(phenoColor)) / totalLevel
+			stepHeight <- min(stepHeight, as.numeric(convertY(unit(fontsize, 'points'), 'npc')) * 1.5)
+			# stepWidth <- convertX(convertY(unit(stepHeight, 'npc'), 'points'), 'npc')
+			rectWidth <- 0.08
+			rectHeight <- min(stepHeight, as.numeric(convertY(convertX(unit(0.05, 'npc'), 'points'), 'npc')))
+			fontsize.color <- floor(as.numeric(convertY(unit(stepHeight * 0.9, 'npc'), 'points')))
+			fontsize.color <- min(fontsize.color, fontsize)
+			for (i in 1:length(phenoColor)) {
+				phenoColor.i <- phenoColor[[i]]
+				phenoTypeName.i <- names(phenoColor)[i]
+				phenotypeLevels.i <- phenotypeLevels[[phenoTypeName.i]]
+				
+				## add title
+				grid.text(phenoTypeName.i, x=0.5, y=ystart - 0.05, just=c('center', 'top'), default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
+
+				for (j in 1:length(phenoColor.i)) {
+					y0 <- ystart - 0.05 - stepHeight * (j + 3/4) 
+					grid.rect(x0, y0, width=rectWidth, height=rectHeight, 
+										gp=gpar(col=phenoColor.i[j], fill=phenoColor.i[j]), default.units="npc", just=c("left", "center"))
+					## add tick labels
+					grid.text(phenotypeLevels.i[j], x=x0 + rectWidth * 2, y=y0, just=c("left", "center"), default.units = "npc", gp=gpar(fontsize=fontsize.color))
+				}
+				## update ystart
+				ystart <- y0
+			}
+		}
+		
+		## plot rectangle around legend
+		grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1), default.units="npc", just=c("left", "top"))
+
+		plotInfo <- c(plotInfo, layout.width=layout.width)
+		popViewport(1)
+	}			
+
+	return(invisible(plotInfo))		
+}
+
+
+## 
+## plot the heatmap data tracks with sample (row) information
+plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL, dataTrackName=NULL, dataInfo=NULL, dataColorMap=NULL, 
+			dataInfoRange=NULL, dataBackground=gray(0.96), minHeatmapColumnWidth=2, labelWidth=0.1, gradient=c("blue", "white", "red"), 
+			ncolor=16, main='', newPlot=FALSE, sizes=NULL, ...) {
+	
+	if (missing(trackList)) {
+		stop('Please provide "trackList"!')
+	}
+	
 	if (!is(trackList, 'list')) trackList <- list(trackList)
-	trackClass <- sapply(trackList, class)
-	dataTrackInd <- which(trackClass == 'DataTrack')
+	dataTrackInd <- which(sapply(trackList, function(x) class(x) == 'DataTrack' && getPar(x, 'type') == 'heatmap'))
+	
 	if (length(dataTrackInd) == 0) {
 		warning('No DataTrack was found!')
 		dataTrackName <- NULL
-	} else if (is.null(dataTrackName)){
-		dataTrackName <- names(trackList[[dataTrackInd[1]]])
-	}
-	
+	} else {
+		if (is.null(dataTrackName)){
+			dataTrackName <- sapply(trackList[dataTrackInd], names)
+		}
+		if (is.null(labels)) {
+			labels <- lapply(trackList[dataTrackInd], function(x) rownames(values(x)))
+			names(labels) <- dataTrackName
+		}	else {
+			if (is.list(labels)) {
+				if (is.null(names(labels))) {
+					stop('Please provide the list names of the labels! The names should be consistent with the dataTrack names.')
+				} else {
+					dataTrackName <- intersect(dataTrackName, names(labels))
+					if (length(dataTrackName) < length(labels)) {
+						warnings('Some label names are inconsistent with dataTrack names!')
+					}
+				}
+			}	else {
+				labels <- list(labels)
+				names(labels) <- dataTrackName[1]
+			}
+		}
+		
+	} 
+
 	## start plotting 
 	if (newPlot)	grid.newpage()
 	
@@ -878,9 +1148,14 @@ plotTracksWithDataTrackInfo <- function(trackList, labels, grange2show=NULL, dat
 	# labelWidth <- 0.1
 	if (!is.null(dataInfo)) {
 		## 
-		if (!is.matrix(dataInfo)) {
+		if (is.data.frame(dataInfo)) {
+			dataInfo <- as.matrix(dataInfo)
+		} else if (!is.matrix(dataInfo)) {
 			dataInfo <- matrix(dataInfo, ncol=1)
-		} 
+		}
+		if (is.null(rownames(dataInfo))) {
+			stop('Please provide labels to dataInfo, which should match the labels!') 
+		}
 		nn <- ncol(dataInfo)
 		labelWidth <- labelWidth + 0.02 * nn
 		if (labelWidth > 0.3) labelWidth <- 0.3
@@ -893,123 +1168,197 @@ plotTracksWithDataTrackInfo <- function(trackList, labels, grange2show=NULL, dat
 	 
 	chromosome <- as.character(seqnames(grange2show)[1])
 	pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
-	plotInfo <- plotTracks(trackList, from=start(grange2show)[1], 
+	
+	## estimate the space of tracks
+	trackHeights <- .estimateTrackHeight(trackList, grange2show, sizes=sizes)
+	
+	## set the minimum width of the heatmap columns to have better visualization effects
+	if (minHeatmapColumnWidth > 1) {
+		newWidth <- ceiling(minHeatmapColumnWidth / as.numeric(convertX(unit(0.95, 'npc'), 'points')) * width(grange2show))
+		trackList[dataTrackInd] <- lapply(trackList[dataTrackInd], function(x) {
+			ww.points <- floor(width(x)/width(grange2show) * as.numeric(convertX(unit(0.95, 'npc'), 'points')))
+			width(x)[ww.points < minHeatmapColumnWidth] <- newWidth
+			return(x)
+		})
+	}
+	
+	## set background color if specified
+	if (!is.na(dataBackground) && !is.null(dataBackground)) {
+		for (dataTrackInd.i in dataTrackInd) {
+			displayPars(trackList[[dataTrackInd.i]]) <- list(background.panel=dataBackground)
+		}
+	}
+	plotInfo <- plotTracks(trackList, from=start(grange2show)[1], sizes=trackHeights,
 			to=end(grange2show)[1], chromosome=chromosome,	add=TRUE, main=main, ...)
 	## retrieve the plot coordinates		
 	plotLoc <- coords(plotInfo$title)
-	popViewport(1)
 
+	## plot a rectangle around the heatmap if necessary
+	# if (!is.na(dataBackground) && !is.null(dataBackground)) {
+	# 	totalHeight <- floor(as.numeric(convertY(unit(1, 'npc'), 'points')))
+	# 	totalWidth <- floor(as.numeric(convertX(unit(1, 'npc'), 'points')))
+	# 	margin <- 6
+	# 	for (dataTrackName.i in dataTrackName) {
+	# 		allHeight <- plotLoc[,'y2'] - plotLoc[,'y1']
+	# 		y0 <- (plotLoc[dataTrackName.i, 'y1'] + margin) / totalHeight
+	# 		height <- (allHeight[dataTrackName.i] - 2 * margin) / totalHeight
+	# 		x0 <- plotLoc[dataTrackName.i, 'x2']/totalWidth 
+	# 		width <- 1 - x0 - margin/totalWidth
+	# 		grid.rect(x0, y=1-y0, width=width, height=height, just=c('left', 'top'), gp=gpar(lty=1, col='dark gray', fill=dataBackground, alpha=0.15))
+	# 	}
+	# }
+
+	popViewport(1)
 	## plot annotation or phenotype information
 	pushViewport(viewport(layout.pos.col=2, layout.pos.row=1))
 
 	defaultPar <- Gviz:::.parMappings$GdObject		
-	## calculate the label positions 
-	# hh <- (plotLoc[dataTrackName, 'y2'] - plotLoc[dataTrackName, 'y1'])/(plotLoc[nrow(plotLoc), 'y2'] + plotLoc[1, 'x1'])
-	# y0 <- (plotLoc[dataTrackName, 'y1'])/(plotLoc[nrow(plotLoc), 'y2'] + plotLoc[1, 'x1'])
+	
 	allHeight <- plotLoc[,'y2'] - plotLoc[,'y1']
-	y0 <- (plotLoc[dataTrackName, 'y1'] - min(plotLoc[, 'y1']))/ sum(allHeight)
-	allHeight <- allHeight/sum(allHeight)
-	hh <- allHeight[dataTrackName]
-	realHeight <- hh / 1.1
-	# grid.rect(0, y=1 - y0 - hh/2, width=1, height=realHeight, just=c('left', 'center'), gp=gpar(lty='dashed', col=3))
+	margin <- plotLoc[1,'x1']
+	y00 <- as.numeric(convertY(unit(1, 'npc'), 'points')) - sum(allHeight) - margin
+	allHeight <- allHeight/as.numeric(convertY(unit(1, 'npc'), 'points'))
+	## to handle more than one data tracks
+	for (i in 1:length(dataTrackName)) {
+		dataTrackName.i <- dataTrackName[i]
+		labels.i <- labels[[dataTrackName.i]]
 
-	ystart <- 1 - y0 - hh/2 - realHeight / 2
-	yend <- 1 - y0 - hh/2 + realHeight / 2
-	stepHeight <- realHeight / length(labels)
-	x0 <- 0.05
-	colWidth <- 0.1
-	if (!is.null(dataInfo)) {
-		# plot the colnames first
-		colWidth <- 1 / (5 + ncol(dataInfo))
-		if (!is.null(colnames(dataInfo))) {
-			fontsize <- floor(as.numeric(convertX(unit(colWidth * 0.99, 'npc'), 'points')))
-			grid.text(colnames(dataInfo), x=x0 + colWidth * (1:ncol(dataInfo)), y = yend + 0.01, rot=90, just=c('left', 'bottom'), 
-				gp=gpar(fontfamily=defaultPar$fontfamily, fontsize=fontsize, fontface=defaultPar$fontface, col=1))
-		}
-		
-		dataColor <- vector(mode='list', length=ncol(dataInfo))
-		names(dataColor) <- colnames(dataInfo)
-		gradient.data <- gradient
-		if (!is.null(dataColorMap)) {
-			if (!is.list(dataColorMap)) stop('dataColorMap should be a named list!')
-			
-			if ('gradient' %in% names(dataColorMap)) {
-				gradient.data <- dataColorMap$gradient
+		## calculate the label positions 
+		y0 <- (plotLoc[dataTrackName.i, 'y1'] - min(plotLoc[, 'y1']) + y00) / as.numeric(convertY(unit(1, 'npc'), 'points'))
+		# 
+		hh <- allHeight[dataTrackName.i]
+		realHeight <- hh / 1.1
+		# grid.rect(0, y=1 - y0 - hh/2, width=1, height=realHeight, just=c('left', 'center'), gp=gpar(lty='dashed', col=3))
+
+		ystart <- 1 - y0 - hh/2 - realHeight / 2
+		yend <- 1 - y0 - hh/2 + realHeight / 2
+		stepHeight <- realHeight / length(labels.i)
+		x0 <- 0.05
+		colWidth <- 0.1
+		if (!is.null(dataInfo)) {
+			# plot the colnames first
+			colWidth <- 1 / (5 + ncol(dataInfo))
+			if (i == 1 && !is.null(colnames(dataInfo))) {
+				fontsize <- floor(as.numeric(convertX(unit(colWidth * 0.95, 'npc'), 'points')))
+				fontsize <- min(fontsize, floor(as.numeric(convertY(unit((1-yend-0.01)/6, 'npc'), 'points')))) # based on height
+				grid.text(colnames(dataInfo), x=x0 + colWidth * (1:ncol(dataInfo)), y = yend + 0.01, rot=90, just=c('left', 'bottom'), 
+					gp=gpar(fontfamily=defaultPar$fontfamily, fontsize=fontsize, fontface=defaultPar$fontface, col=1))
 			}
-			## convert colors to the format like "#FF0000"
-			dataCols <- colnames(dataInfo)[(colnames(dataInfo) %in% names(dataColorMap))]
-			otherCol <- colnames(dataInfo)[!(colnames(dataInfo) %in% names(dataColorMap))]
-			for (dataCol.i in dataCols) {
-				colorMap.i <- dataColorMap[[dataCol.i]]
-				if (is.numeric(colorMap.i)) {
-					paletteColor <- palette()
-					colorMap.i <- rgb(t(col2rgb(paletteColor[round(colorMap.i) %% length(paletteColor)]))/255)
-				} else if (length(grep("^#", colorMap.i)) < length(colorMap.i)) {
-					colorMap.i <- rgb(t(col2rgb(colorMap.i))/255)
+
+			dataColor <- vector(mode='list', length=ncol(dataInfo))
+			names(dataColor) <- colnames(dataInfo)
+			gradient.data <- gradient
+			if (!is.null(dataColorMap)) {
+				if (!is.list(dataColorMap)) stop('dataColorMap should be a named list!')
+
+				if ('gradient' %in% names(dataColorMap)) {
+					gradient.data <- dataColorMap$gradient
 				}
-				data.i <- dataInfo[,dataCol.i]
-				## if there are larger than 10 color levels, the data will be scaled to the data range
-				if (length(colorMap.i) > 10) {
-					## dataInfoRange is to control the plot color range
-					if (!is.null(dataInfoRange)) {
-						if (is.list(dataInfoRange)) {
-							dataInfoRange.i <- dataInfoRange[[dataCol.i]]
-							if (is.null(dataInfoRange.i)) dataInfoRange.i <- dataInfoRange[[1]]
-						} else {
-							dataInfoRange.i <- dataInfoRange
-						}
-						data.i <- Gviz:::.z2icol(data.i, length(colorMap.i), xrange=dataInfoRange.i)
-					} else {
-						data.i <- Gviz:::.z2icol(data.i, length(colorMap.i), xrange=range(data.i))	
+				## convert colors to the format like "#FF0000"
+				dataCols <- colnames(dataInfo)[(colnames(dataInfo) %in% names(dataColorMap))]
+				otherCol <- colnames(dataInfo)[!(colnames(dataInfo) %in% names(dataColorMap))]
+				for (dataCol.i in dataCols) {
+					colorMap.i <- dataColorMap[[dataCol.i]]
+					if (is.numeric(colorMap.i)) {
+						paletteColor <- palette()
+						colorMap.i <- rgb(t(col2rgb(paletteColor[round(colorMap.i) %% length(paletteColor)]))/255)
+					} else if (length(grep("^#", colorMap.i)) < length(colorMap.i)) {
+						colorMap.i <- rgb(t(col2rgb(colorMap.i))/255)
 					}
-				} 
-				dataColor[[dataCol.i]] <- colorMap.i[round(data.i)]
-			}
+					if (is.null(rownames(dataInfo))) {
+						if (nrow(dataInfo) == length(labels.i)) {
+							rownames(dataInfo) <- labels.i
+						} else {
+							stop('Please provide rownames to dataInfo, which should be consistent to the labels!')
+						}
+					} 
+					data.i <- dataInfo[labels.i,dataCol.i]
+					## if there are larger than 10 color levels, the data will be scaled to the data range
+					if (length(colorMap.i) > 10) {
+						## dataInfoRange is to control the plot color range
+						if (!is.null(dataInfoRange)) {
+							if (is.list(dataInfoRange)) {
+								dataInfoRange.i <- dataInfoRange[[dataCol.i]]
+								if (is.null(dataInfoRange.i)) dataInfoRange.i <- dataInfoRange[[1]]
+							} else {
+								dataInfoRange.i <- dataInfoRange
+							}
+							data.i <- Gviz:::.z2icol(data.i, length(colorMap.i), xrange=dataInfoRange.i)
+						} else {
+							data.i <- Gviz:::.z2icol(data.i, length(colorMap.i), xrange=range(data.i))	
+						}
+					} 
+					dataColor[[dataCol.i]] <- colorMap.i[round(data.i)]
+				}
 
-			if (length(otherCol) > 0) {
-				valsScaled <- Gviz:::.z2icol(dataInfo[,otherCol, drop=FALSE], ncolor, xrange=range(dataInfo[,otherCol]))
-				for (i in 1:length(otherCol)) {
-					dataColor[[otherCol[i]]] <- colorRampPalette(gradient.data)(ncolor)[valsScaled[,i]]
+				if (length(otherCol) > 0) {
+					valsScaled <- Gviz:::.z2icol(dataInfo[labels.i,otherCol, drop=FALSE], ncolor, xrange=range(dataInfo[,otherCol,drop=FALSE]))
+					for (i in 1:length(otherCol)) {
+						dataColor[[otherCol[i]]] <- colorRampPalette(gradient.data)(ncolor)[valsScaled[,i]]
+					}
+				}
+			} else {
+				## dataInfoRange is to control the plot color range
+				if (!is.null(dataInfoRange)) {
+					valsScaled <- Gviz:::.z2icol(dataInfo[labels.i,,drop=FALSE], ncolor, xrange=dataInfoRange)
+				} else {
+					valsScaled <- Gviz:::.z2icol(dataInfo[labels.i,,drop=FALSE], ncolor, xrange=range(dataInfo))	
+				}
+				for (i in 1:ncol(dataInfo)) {
+					dataColor[[i]] <- colorRampPalette(gradient)(ncolor)[valsScaled[,i]]
 				}
 			}
-		} else {
-			## dataInfoRange is to control the plot color range
-			if (!is.null(dataInfoRange)) {
-				valsScaled <- Gviz:::.z2icol(dataInfo, ncolor, xrange=dataInfoRange)
-			} else {
-				valsScaled <- Gviz:::.z2icol(dataInfo, ncolor, xrange=range(dataInfo))	
-			}
-			dataColorMap <- colorRampPalette(gradient)(ncolor)
-			for (i in 1:ncol(dataInfo)) {
-				dataColor[[i]] <- colorRampPalette(gradient)(ncolor)[valsScaled[,i]]
-			}
-		}
 
-		## plot data matrix as a regular heatmap
-		for (i in 1:ncol(dataInfo)) {
-			dataCol.i <- colnames(dataInfo)[i]
-			grid.rect(x0, stepHeight * (1:length(labels)) + ystart, width=colWidth, height=stepHeight, 
-								gp=gpar(col=dataColor[[dataCol.i]], fill=dataColor[[dataCol.i]]),
-								default.units="npc", just=c("left", "top"))
-			x0 <- x0 + colWidth
+			## plot data matrix as a regular heatmap
+			for (i in 1:ncol(dataInfo)) {
+				dataCol.i <- colnames(dataInfo)[i]
+				grid.rect(x0, stepHeight * (1:length(labels.i)) + ystart, width=colWidth, height=stepHeight, 
+									gp=gpar(col=dataColor[[dataCol.i]], fill=dataColor[[dataCol.i]]),
+									default.units="npc", just=c("left", "top"))
+				x0 <- x0 + colWidth
+			}
+			x0 <- x0 + min(0.05, colWidth/2)
 		}
-		x0 <- x0 + min(0.05, colWidth/2)
+		fontsize <- floor(as.numeric(convertY(unit(stepHeight * 0.9, 'npc'), 'points')))
+		if (!is.null(dataInfo)) {
+			realLabelWidth <- 1 - (colWidth) * ncol(dataInfo) - min(0.1, colWidth)
+		} else {
+			realLabelWidth <- 0.95
+		}
+		numchar <- min(max(nchar(labels.i)), 5)
+		fontsizeW <- round(as.numeric(convertX(unit(realLabelWidth, 'npc'), 'points'))/ numchar)
+		fontsize <- min(fontsize, fontsizeW)
+		grid.text(labels.i, x=x0, y = stepHeight * (1:length(labels.i)) + ystart - stepHeight/2, just=c('left', 'center'), gp=gpar(fontfamily=defaultPar$fontfamily, fontsize=fontsize, fontface=defaultPar$fontface, col=1))
 	}
-	fontsize <- floor(as.numeric(convertY(unit(stepHeight * 0.9, 'npc'), 'points')))
-	if (!is.null(dataInfo)) {
-		realLabelWidth <- 1 - (colWidth) * ncol(dataInfo) - min(0.1, colWidth)
-	} else {
-		realLabelWidth <- 0.9
-	}
-	fontsizeW <- round(as.numeric(convertX(unit(realLabelWidth / 5, 'npc'), 'points')))
-	fontsize <- min(fontsize, fontsizeW)
-	grid.text(labels, x=x0, y = stepHeight * (1:length(labels)) + ystart - stepHeight/2, just=c('left', 'center'), gp=gpar(fontfamily=defaultPar$fontfamily, fontsize=fontsize, fontface=defaultPar$fontface, col=1))
 	popViewport(2)
 	
 	plotInfo <- c(plotInfo, labelWidth=labelWidth)
 
 	return(invisible(plotInfo))
 }
+
+
+## estimate the Gviz track heights
+# 
+# grange2show: a GRanges object specify the start and end of the plot range
+.estimateTrackHeight <- function(trackList, grange2show, sizes=NULL, minPoints=40) {
+	
+	trackList <- lapply(trackList, Gviz::subset, from=start(grange2show), to=end(grange2show), chromosome=seqnames(grange2show))
+  trackList <- lapply(trackList, Gviz:::setStacks, from=start(grange2show), to=end(grange2show))
+	spaceSetup <- Gviz:::.setupTextSize(trackList, sizes=sizes)
+	totalHeight <- as.numeric(convertY(unit(1, 'npc'), 'points'))
+	space.points <- totalHeight * spaceSetup$spaceNeeded
+	smallTrackInd <- which(space.points < minPoints)
+	if (length(smallTrackInd) > 0) {
+		space.points[smallTrackInd] <- minPoints
+		remainPoints <- totalHeight - minPoints * length(smallTrackInd)
+		space.points[-smallTrackInd] <- remainPoints * space.points[-smallTrackInd] / sum(space.points[-smallTrackInd])
+		space.points[space.points < minPoints] <- minPoints
+	}
+	sizes.new <- space.points/sum(space.points)
+	return(sizes.new)
+}
+
 
 
 

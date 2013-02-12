@@ -7,8 +7,9 @@ Create a transcript annotation track
 Create a transcript track, which is a GeneRegionTrack object
 }
 \usage{
-createTranscriptTrack(gene, genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", lib = "org.Hs.eg.db", genome = "hg19", 
-	extendRange = c(2000, 2000), includeGeneBody = TRUE, thinBox_utrOnly = FALSE, background.title = "gray", fill = "#8282d2", ...)
+createTranscriptTrack(gene, genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", lib = "org.Hs.eg.db", 
+	genome = "hg19", extendRange = c(2000, 2000), includeOtherGene=FALSE, includeGeneBody = TRUE, 
+	thinBox_utrOnly = FALSE, background.title = "gray", fill = "#8282d2", ...)
 }
 \arguments{
   \item{gene}{
@@ -25,6 +26,9 @@ The version of genome
 }
   \item{extendRange}{
 extended range on each side of the  gene
+}
+  \item{includeOtherGene}{
+whether to include other genes in the same chromosome ranges, only useful when "gene" is a gene ID.
 }
   \item{includeGeneBody}{
 whether to include the whole gene body or not
