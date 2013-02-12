@@ -110,9 +110,9 @@ createTranscriptTrack <- function(gene,
 			}
 			grange2show <- GRanges(seqnames=chromosome, strand='*', ranges=IRanges(start=ss, end=ee))
 			if (includeOtherGene) 
-				transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show))]
+				transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
 		} else {
-			transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show))]
+			transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
 		}
 	}
 		
@@ -401,7 +401,7 @@ heatmapByChromosome <- function(
 		## select related methylation data	
 		genoSet <- checkChrName(genoSet, addChr=TRUE)
 		grange.data <- suppressWarnings(as(locData(genoSet), 'GRanges'))
-		selMethyData <- genoSet[!is.na(GenomicRanges::match(grange.data, grange2show)),]
+		selMethyData <- genoSet[!is.na(GenomicRanges::match(grange.data, grange2show, match.if.overlap=TRUE)),]
 		if (nrow(selMethyData) == 0) {
 			warning("There is no methylation data exist in the selected grange2show!")
 			return(NULL)
