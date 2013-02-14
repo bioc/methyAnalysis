@@ -110,9 +110,12 @@ createTranscriptTrack <- function(gene,
 			}
 			grange2show <- GRanges(seqnames=chromosome, strand='*', ranges=IRanges(start=ss, end=ee))
 			if (includeOtherGene) 
-				transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
+				# transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
+				transTrack <- genomicFeature[overlapsAny(ranges(genomicFeature), grange2show)]
+				
 		} else {
-			transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
+			# transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
+			transTrack <- genomicFeature[overlapsAny(ranges(genomicFeature), grange2show)]
 		}
 	}
 		
@@ -401,7 +404,7 @@ heatmapByChromosome <- function(
 		## select related methylation data	
 		genoSet <- checkChrName(genoSet, addChr=TRUE)
 		grange.data <- suppressWarnings(as(locData(genoSet), 'GRanges'))
-		selMethyData <- genoSet[!is.na(GenomicRanges::match(grange.data, grange2show, match.if.overlap=TRUE)),]
+		selMethyData <- genoSet[overlapsAny(grange.data, grange2show),]
 		if (nrow(selMethyData) == 0) {
 			warning("There is no methylation data exist in the selected grange2show!")
 			return(NULL)
@@ -896,7 +899,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			}
 			
 			## plot rectangle around legend
-			grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1), default.units="npc", just=c("left", "top"))
+			grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1, fill=rgb(1,1,1, alpha=0)), default.units="npc", just=c("left", "top"))
 			
 			plotInfo <- c(plotInfo, layout.width=layout.width)
 			popViewport(1)
@@ -1090,7 +1093,7 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 		}
 		
 		## plot rectangle around legend
-		grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1), default.units="npc", just=c("left", "top"))
+		grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1, fill=rgb(1,1,1, alpha=0)), default.units="npc", just=c("left", "top"))
 
 		plotInfo <- c(plotInfo, layout.width=layout.width)
 		popViewport(1)
@@ -1213,7 +1216,7 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 	pushViewport(viewport(layout.pos.col=2, layout.pos.row=1))
 
 	defaultPar <- Gviz:::.parMappings$GdObject		
-	
+
 	allHeight <- plotLoc[,'y2'] - plotLoc[,'y1']
 	margin <- plotLoc[1,'x1']
 	y00 <- as.numeric(convertY(unit(1, 'npc'), 'points')) - sum(allHeight) - margin
@@ -1245,6 +1248,23 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 					gp=gpar(fontfamily=defaultPar$fontfamily, fontsize=fontsize, fontface=defaultPar$fontface, col=1))
 			}
 
+			## check the consistency of dataInfo rownames and labels.i
+			if (is.null(rownames(dataInfo))) {
+				if (nrow(dataInfo) == length(labels.i)) {
+					rownames(dataInfo) <- labels.i
+				} else {
+					stop('Please provide rownames to dataInfo, which should be consistent to the labels!')
+				}
+			} else {
+				if (!all(labels.i %in% rownames(dataInfo))) {
+					labels.i <- make.names(labels.i)
+					rownames(dataInfo) <- make.names(rownames(dataInfo))
+					if (!all(labels.i %in% rownames(dataInfo))) {
+						stop("'labels' does not match rownames of dataInfo!\n")
+					}
+				}
+			}
+
 			dataColor <- vector(mode='list', length=ncol(dataInfo))
 			names(dataColor) <- colnames(dataInfo)
 			gradient.data <- gradient
@@ -1265,13 +1285,6 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 					} else if (length(grep("^#", colorMap.i)) < length(colorMap.i)) {
 						colorMap.i <- rgb(t(col2rgb(colorMap.i))/255)
 					}
-					if (is.null(rownames(dataInfo))) {
-						if (nrow(dataInfo) == length(labels.i)) {
-							rownames(dataInfo) <- labels.i
-						} else {
-							stop('Please provide rownames to dataInfo, which should be consistent to the labels!')
-						}
-					} 
 					data.i <- dataInfo[labels.i,dataCol.i]
 					## if there are larger than 10 color levels, the data will be scaled to the data range
 					if (length(colorMap.i) > 10) {

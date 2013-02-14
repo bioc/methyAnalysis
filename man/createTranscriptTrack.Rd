@@ -63,7 +63,7 @@ Pan Du
 \examples{
 if (require(TxDb.Hsapiens.UCSC.hg19.knownGene) && require(Gviz)) {
 	rangeTrack <- createTranscriptTrack('7157', genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene")
-	plotTracks(rangeTrack)
+	# plotTracks(rangeTrack)
 }
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

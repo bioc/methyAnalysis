@@ -177,7 +177,7 @@ Another wrapper function, \Rfunction{plotMethylationHeatmapByGene}, is specifica
 \begin{Sinput}
 > ## plot the DNA methylation heatmap by gene of selected GRanges
 > plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, 
-    phenotype=pData(exampleMethyGenoSet), includeGeneBody=TRUE,
+    phenoData=pData(exampleMethyGenoSet), includeGeneBody=TRUE,
     genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene')  
 \end{Sinput}
 
@@ -196,7 +196,7 @@ heatmapByChromosome(exampleMethyGenoSet, gene='6493',  genomicFeature='TxDb.Hsap
 \centering
 <<heatmap_phenotype, fig=TRUE, quiet=TRUE, echo=FALSE>>=
 plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, includeGeneBody=TRUE,
-    phenotype=pData(exampleMethyGenoSet), genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
+    phenoData=pData(exampleMethyGenoSet), genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
     newPlot=FALSE)
 @
 \caption{DNA methylation heatmap by chromosome location with phenotype information}

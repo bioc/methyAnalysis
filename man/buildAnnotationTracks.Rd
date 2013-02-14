@@ -59,7 +59,6 @@ Pan Du
 \examples{
 if (require(TxDb.Hsapiens.UCSC.hg19.knownGene) && require(Gviz)) {
 	annotationTracks <- buildAnnotationTracks('1826', includeGeneBody = FALSE, genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene")
-	plotTracks(annotationTracks)
 }
 
 }
