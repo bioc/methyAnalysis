@@ -8,7 +8,7 @@ heatmap with chromosome location as x axis and plot together with other gene ann
 }
 \usage{
 heatmapByChromosome(genoSet, gene, annotationTracks = NULL, otherTrackList = NULL, phenoData = NULL,  
-	phonoColorMap = NULL, extendRange = c(2000, 2000), includeGeneBody = TRUE, showFullModel = TRUE, sortSample = TRUE,  
+	phonoColorMap = NULL, extendRange = c(2000, 2000), includeGeneBody = TRUE, showFullModel = FALSE, sortSample = TRUE,  
 	cytobandInfo = NULL, CpGInfo = NULL, genomeAxis = TRUE, dataTrackName = "Methylation Profile", lib = "org.Hs.eg.db", 
 	genome = "hg19", genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", gradient = c("blue", "white", "red"), 
 	ncolor = 16, ylim = NULL, th = 0.99, main = "", ...)

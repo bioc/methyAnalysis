@@ -33,37 +33,45 @@ createTranscriptTrack <- function(gene,
 		}
 	}
 
-	## return whole genome if gene is deliberately set as NULL
-	if (grepl('^chr', gene) && is(genomicFeature, 'TranscriptDb')) {
-		if (length(grep('^chr', seqlevels(genomicFeature), ignore.case=TRUE)) == 0) {
-			options(ucscChromosomeNames=FALSE)
-			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=checkChrName(gene, addChr=FALSE), showId=TRUE)
-		} else {
-			options(ucscChromosomeNames=TRUE)
-			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=gene, showId=TRUE)
-		}
-		return(genomicFeature)
-	}
-	
 	if (is(gene, 'GRanges')) {
 		grange2show <- gene
 		gene <- names(gene)
 		chromosome <- as.character(seqnames(grange2show)[1])
-	} else if (require(lib, character.only=TRUE)) {
-		chromosome <- lookUp(gene, lib, 'CHR')[[1]]
+	} else if (is.character(gene)) {
 		grange2show <- NULL
+		if (grepl('^chr', gene)) {
+			chromosome <- gene
+		} else if (require(lib, character.only=TRUE)) {
+			chromosome <- lookUp(gene, lib, 'CHR')[[1]]
+		}
 	}
-	chromosome <- checkChrName(chromosome, addChr=TRUE)	
+	if (is.na(chromosome)) {
+		stop('Cannot find chromosome information for the gene!')
+	} else {
+		chromosome <- checkChrName(chromosome, addChr=TRUE)	
+	}
 
-	## identify related transcripts
 	## convert TranscriptDb as "GeneRegionTrack" first
 	if (is(genomicFeature, 'TranscriptDb')) {
 		if (length(grep('^chr', seqlevels(genomicFeature), ignore.case=TRUE)) == 0) {
 			options(ucscChromosomeNames=FALSE)
 			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=checkChrName(chromosome, addChr=FALSE), showId=TRUE)
+			chromosome(genomicFeature) <- checkChrName(chromosome, addChr=TRUE)
 		} else {
 			options(ucscChromosomeNames=TRUE)
 			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=chromosome, showId=TRUE)
+		}
+		
+		# ## convert a TranscriptDb as GeneRegionTrack for a selected Gene		
+		# genomicFeature <- GeneRegionTrack(genomicFeature, gene=gene, showId=TRUE)
+		genomicFeature <- checkChrName(genomicFeature, addChr=TRUE)		
+		if (is(grange2show, 'GenomicRanges')) {
+			attr(genomicFeature, 'grange2show') <- grange2show
+			return(genomicFeature)
+		} 
+		if (grepl('^chr', gene)) {
+			attr(genomicFeature, 'grange2show') <- NULL
+			return(genomicFeature)
 		}
 	}
 
@@ -73,9 +81,10 @@ createTranscriptTrack <- function(gene,
 		## estimate grange2show and create a transTrack within selected grange2show
 		genomicFeature <- checkChrName(genomicFeature, addChr=TRUE)		
 		chromosome(genomicFeature) <- checkChrName(chromosome(genomicFeature), addChr=TRUE)	
-		if (is.null(grange2show)) {
+		
+		if (!includeOtherGene || is.null(grange2show)) {
 			allGene <- gene(genomicFeature)
-			selInd <- which(allGene %in% gene)
+			selInd <- which(allGene == gene)
 			if (length(selInd) == 0) {
 				if (grepl('^GeneID:', gene, ignore.case=TRUE)) {
 					gene <- sub('^GeneID:', '', gene)
@@ -84,11 +93,17 @@ createTranscriptTrack <- function(gene,
 				}
 				selInd <- which(allGene %in% gene)
 				if (length(selInd) == 0) {
-					warning('No genes in the selected chromosome range!')
+					warnings('No genes in the selected chromosome range!')
+					transTrack <- genomicFeature
+					names(transTrack) <- "Gene Model"
+					displayPars(transTrack) <- list(background.title=background.title, fill=fill, ...)
+					attr(transTrack, 'grange2show') <- NULL
+					return(transTrack)
 				}
 			}
 			transTrack <- genomicFeature[selInd]
 			selTrans <- ranges(genomicFeature)[selInd]
+
 			if (includeGeneBody) {
 				rr <- cbind(start(selTrans), end(selTrans))
 				ss <- min(rr) - extendRange[1]
@@ -109,13 +124,14 @@ createTranscriptTrack <- function(gene,
 				ee <- max(tss) + extendRange[2]
 			}
 			grange2show <- GRanges(seqnames=chromosome, strand='*', ranges=IRanges(start=ss, end=ee))
-			if (includeOtherGene) 
-				# transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
+		} 
+		if (includeOtherGene) {
+			if (packageVersion('GenomicRanges') < '1.11.0') {
+				transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show))]
+			} else {
 				transTrack <- genomicFeature[overlapsAny(ranges(genomicFeature), grange2show)]
-				
-		} else {
-			# transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show, match.if.overlap=TRUE))]
-			transTrack <- genomicFeature[overlapsAny(ranges(genomicFeature), grange2show)]
+			}
+			transTrack <- genomicFeature[transcript(genomicFeature) %in% transcript(transTrack)]
 		}
 	}
 		
@@ -191,9 +207,76 @@ createTranscriptTrack <- function(gene,
 }
 
 
+transcriptDb2GeneRegionTrackByGene <- function(genomicFeature, selGene, extendRange=c(2000, 2000), includeGeneBody=TRUE, includeOtherGene=FALSE, ...) {
+	
+	geneRange <- NULL
+	if (is(selGene, 'GRanges')) {
+		geneRange <- selGene
+	} else if (is.character(selGene)) {
+		if (grepl('^chr', selGene)) {
+			chromosome <- selGene
+			if (length(grep('^chr', seqlevels(genomicFeature), ignore.case=TRUE)) == 0) {
+				options(ucscChromosomeNames=FALSE)
+				genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=checkChrName(chromosome, addChr=FALSE), showId=TRUE)
+			} else {
+				options(ucscChromosomeNames=TRUE)
+				genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=chromosome, showId=TRUE)
+			}
+			attr(genomicFeature, 'grange2show') <- geneRange
+			return(genomicFeature)
+		} else {
+			## get related transcripts
+			tr <- transcripts(genomicFeature, vals=list(gene_id=selGene), columns=c('gene_id', 'tx_id', 'tx_name'))	
+			if (length(tr) == 0) stop('No matched transcripts were found. Please check the format of Gene ID and genomicFeature!')
+			geneRange <- GRanges(seqnames(tr)[1], ranges=IRanges(start=min(start(tr)), end=max(end(tr))), strand=strand(tr)[1])
+		}
+	}
+	## expand the transcript region
+	if (!is.null(extendRange)) {
+		start(geneRange) <- start(geneRange) - extendRange[1]
+		## expand the promoter region
+		if (length(extendRange) == 2) {
+			end(geneRange) <- end(geneRange) + extendRange[2]
+		}
+	} 
+	genomicFeature <- GeneRegionTrack(genomicFeature, rstarts=start(geneRange), rends=end(geneRange), chromosome=seqnames(geneRange))
+	
+	if (includeGeneBody) {
+		rr <- cbind(start(selTrans), end(selTrans))
+		ss <- min(rr) - extendRange[1]
+		ee <- max(rr) + extendRange[2]
+	} else {
+		## only retrieve the region surrounding TSS
+		rr <- ranges(genomicFeature)
+		if (!is.null(values(rr)$transcript)) {
+			tss <- unlist(sapply(split(rr, values(rr)$transcript), function(x) {
+				tss.x <- ifelse(as.character(strand(x)[1]) == '-', max(end(x)), min(start(x)))
+			}))
+		} else {
+			utr5.ind <- which(tolower(feature(genomicFeature)[selInd]) == 'utr5')
+			if (length(utr5.ind) > 0) selTrans <- selTrans[utr5.ind]
+			tss <- ifelse(as.character(strand(selTrans)) == '-', end(selTrans), start(selTrans))
+		}
+		ss <- min(tss) - extendRange[1]
+		ee <- max(tss) + extendRange[2]
+	}
+	grange2show <- GRanges(seqnames=chromosome, strand='*', ranges=IRanges(start=ss, end=ee))
+	if (includeOtherGene) {
+		if (packageVersion('GenomicRanges') < '1.11.0') {
+			transTrack <- genomicFeature[!is.na(match(ranges(genomicFeature), grange2show))]
+		} else {
+			transTrack <- genomicFeature[overlapsAny(ranges(genomicFeature), grange2show)]
+		}
+	}
+	
+	attr(genomicFeature, 'grange2show') <- geneRange
+	return(genomicFeature)
+}
+
+
 ## .estimateStackLocation(annotationTracks[[3]], from=ranges[1], to=ranges[2])
 .estimateStackLocation <- function(track, from, to, chromosome=NULL, ...) {
-	track <- Gviz:::consolidateTrack(track, chromosome=chromosome, ...)
+	track <- Gviz:::consolidateTrack(track, chromosome=chromosome, from=from, to=to, ...)
 
 	## Now we can subset all the objects in the list to the current boundaries and compute the initial stacking
 	track <- Gviz:::subset(track, from=from, to=to)
@@ -281,6 +364,7 @@ buildAnnotationTracks <- function(
 		## update grange2show
 		grange2show <- attr(transTrack, 'grange2show')
 	}
+	
 	attr(allTracks, 'grange2show') <- grange2show
 	return(allTracks)
 }
@@ -297,7 +381,7 @@ heatmapByChromosome <- function(
 					phonoColorMap = NULL,	# a list of colormaps for every column-side rows
 					extendRange=c(2000, 2000), # extended range on each side of the	gene
 					includeGeneBody=TRUE, # wether to include genebody of the provided gene
-					showFullModel=TRUE, # only valid when includeGeneBody is FALSE
+					showFullModel=FALSE, # only valid when includeGeneBody is FALSE
 					sortSample=TRUE,			# whether to sort samples based on intensity profiles
 					cytobandInfo=NULL,		# cytoband information, 
 					CpGInfo=NULL,					# CpG-island information, GRanges or bed file are supported
@@ -342,8 +426,6 @@ heatmapByChromosome <- function(
 		})
 		ylim <- range(unlist(ylim))
 	} 
-	
-	
 	
 	if (!is.null(phenoData)) {
 		rn <- rownames(phenoData)
@@ -404,7 +486,12 @@ heatmapByChromosome <- function(
 		## select related methylation data	
 		genoSet <- checkChrName(genoSet, addChr=TRUE)
 		grange.data <- suppressWarnings(as(locData(genoSet), 'GRanges'))
-		selMethyData <- genoSet[overlapsAny(grange.data, grange2show),]
+		if (packageVersion('GenomicRanges') < '1.11.0') {
+			selMethyData <- genoSet[!is.na(match(grange.data, grange2show)),]
+		} else {
+			selMethyData <- genoSet[overlapsAny(grange.data, grange2show),]
+		}
+		
 		if (nrow(selMethyData) == 0) {
 			warning("There is no methylation data exist in the selected grange2show!")
 			return(NULL)
@@ -453,13 +540,25 @@ heatmapByChromosome <- function(
 		plotInfo <- plotTracksWithDataTrackInfo(allTracks, grange2show=grange2show, dataInfo=phenoData, 
 			dataColorMap=phonoColorMap, labelWidth=0.1, gradient=gradient, ncolor=ncolor, ylim=ylim, ...)
 		popViewport(1)
+		grange2show <- attr(plotInfo, 'grange2show')
+		grange2show <- checkChrName(grange2show, addChr=TRUE)
 
 		pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
 		geneModelTrack <- allTracks[[geneModelTrackInd]]
 		names(geneModelTrack) <- 'Full Gene Model'
-		start.range <- min(start(geneModelTrack)) 
+
+		## make sure the transcript names are shown in right side of plot
+		start.range <- min(start(geneModelTrack))
 		end.range <- max(end(geneModelTrack))
-		start.range <- start.range - (end.range - start.range) / 5
+
+		labelWidth <- max(nchar(transcript(geneModelTrack))) * getPar(geneModelTrack, 'fontsize') / 2 * getPar(geneModelTrack, 'cex')
+		labelWidthRatio <- labelWidth/as.numeric(convertX(unit(0.95, 'npc'), 'points'))
+		labelWidth.db <- round((end.range - start.range) * labelWidthRatio)
+		# if (labelWidth.points < 0) labelWidth.points <- 0
+
+		start.range <- start.range - labelWidth.db
+		# end.range <- max(end(geneModelTrack))
+		# start.range <- start.range - (end.range - start.range) / 5
 		plotInfo.fullModel <- plotTracks(geneModelTrack, from=start.range, to=end.range, chromosome=chromosome, add=TRUE, main=main, ...)
 			
 		## plot rectangle of the grange2show
@@ -484,9 +583,13 @@ heatmapByChromosome <- function(
 		showRegion <- end(grange2show) - start(grange2show)
 		x1 <- x0 + plotWidth * (start(grange2show) - start.range)/(end.range - start.range)
 		if (x1 < x0) x1 <- x0
-		
 		rect.width <- plotWidth * (end(grange2show) - start(grange2show))/(end.range - start.range)
 		if (x1 + rect.width > 1) rect.width <- 1 - x1 
+		## set minimum width as 0.02
+		if (rect.width < 0.02)  {
+			x1 <- x1 - (0.02 - rect.width)/4
+			rect.width <- 0.02
+		}
 		grid.rect(x1, y1, width=rect.width, height=plotHeight, gp=gpar(col=2, lwd=1.5, alpha=0.3, lty=2), just=c('left', 'bottom'))
 		x1.points <- as.numeric(convertX(unit(x1, 'npc'), 'points'))
 		x2.points <- as.numeric(convertX(unit(x1 + rect.width, 'npc'), 'points'))
@@ -502,6 +605,7 @@ heatmapByChromosome <- function(
 		#y1.zm <- y2.zm <- as.numeric(convertY(unit(zoominCor[1, 'y1'], 'points'), 'npc')) # - 0.01
 		y1.zm <- y2.zm <- sum(layout.height[1:2])
 		x2.zm <- 1 - plotInfo$labelWidth
+	
 		grid.lines(x=c(x1.npc, x1.zm), y=1-c(y1.npc,y1.zm), default.units='npc', gp=gpar(col=2, lty=2))
 		grid.lines(x=c(x2.npc, x2.zm), y=1-c(y2.npc,y2.zm), default.units='npc', gp=gpar(col=2, lty=2))
 
@@ -541,6 +645,12 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 	sortBy <- as.character(sortBy)
 	sortBy <- match.arg(sortBy)
 	if(is.na(sortBy)) sortBy <- 'NA'
+
+	## convert gradient as a vector of colors if not
+	if (!all(grepl("^#", gradient)) || length(gradient) < 5) {
+		gradient <- colorRampPalette(gradient)(ncolor)
+	} 
+	ncolor <- length(gradient)
 
 	if (!is(methyGenoSet, 'GenoSet')) 
 		stop('"methyGenoSet" must be a GenoSet object.')
@@ -685,6 +795,11 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		geneRegionTrack <- annotationTracks[sapply(annotationTracks, class) == 'GeneRegionTrack'][[1]]
 		## estimate the order of transcripts in the geneRegionTrack
 		grange2show <- attr(annotationTracks, 'grange2show')
+		if (is.null(grange2show)) {
+			warnings('No region to plot!')
+			return(NULL)
+		}
+		
 		grange2show <- checkChrName(grange2show, addChr=TRUE)
 		chromosome <- as.character(seqnames(grange2show))[1]
 		geneRegionTrack <- .estimateStackLocation(geneRegionTrack, from=start(grange2show)[1], to=end(grange2show)[1], chromosome=chromosome)
@@ -804,7 +919,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			## plot methylation legend
 			stepHeight <- legendHeight * 2 * 0.9 / ncolor
 			ystart <- 1 - (0.05 + legendHeight * 2 )
-			methyColor <- colorRampPalette(gradient)(ncolor)[1:ncolor]
+			methyColor <- gradient
 
 			grid.rect(x0, stepHeight * (1:ncolor) + ystart, width=colWidth, height=stepHeight, 
 								gp=gpar(col=methyColor, fill=methyColor), default.units="npc", just=c("left", "top"))
@@ -925,6 +1040,12 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 		selGene <- selGene[1]
 	}
 	
+	## convert gradient as a vector of colors if not
+	if (!all(grepl("^#", gradient)) || length(gradient) < 5) {
+		gradient <- colorRampPalette(gradient)(ncolor)
+	} 
+	ncolor <- length(gradient)
+
 	if (!is.list(genoSet)) {
 		genoSetList <- list(genoSet)
 	} else {
@@ -971,17 +1092,23 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 	}
 	
 	annotationTracks <- buildAnnotationTracks(gene=selGene, includeGeneBody=includeGeneBody, CpGInfo=CpGInfo, genomicFeature=genomicFeature, ...)
-	
+
 	## sort the transcript based on annotation track
 	geneRegionTrack <- annotationTracks[sapply(annotationTracks, class) == 'GeneRegionTrack'][[1]]
 	## estimate the order of transcripts in the geneRegionTrack
 	grange2show <- attr(annotationTracks, 'grange2show')
+	if (is.null(grange2show)) {
+		warnings('No region to plot!')
+		return(NULL)
+	}
+
 	grange2show <- checkChrName(grange2show, addChr=TRUE)
-	chromosome <- as.character(seqnames(grange2show))[1]
+	chromosome <- as.character(seqnames(grange2show)[1])
 	if (sortByTx) {
 		geneRegionTrack <- .estimateStackLocation(geneRegionTrack, from=start(grange2show)[1], to=end(grange2show)[1], chromosome=chromosome)
 		annTx <- split(values(geneRegionTrack)$transcript, stacks(geneRegionTrack))
 		annTx <- rev(unique(as.character(unlist(annTx))))
+		
 		genoSetList <- lapply(genoSetList, function(x) {
 			x.name <- sampleNames(x)
 			ind <- 1:length(x.name)
@@ -993,12 +1120,18 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 
 	## ------------------------------------
 	## plot the heatmap of selGene
-	symbol <- unlist(lookUp(selGene, 'org.Hs.eg.db', 'SYMBOL'))
-	if (!is.null(title.suffix)) {
-		title <- paste(symbol, ' (', title.suffix, ')', sep='')
-	} else {
-		title <- paste(symbol, ' (GeneID:', selGene, ')', sep='')
+	title <- NULL
+	if (is.character(selGene)) {
+		symbol <- unlist(lookUp(selGene, 'org.Hs.eg.db', 'SYMBOL'))
+		if (!is.null(title.suffix)) {
+			title <- paste(symbol, ' (', title.suffix, ')', sep='')
+		} else {
+			title <- paste(symbol, ' (GeneID:', selGene, ')', sep='')
+		}
+	} else if (is(selGene, 'GRanges')) {
+		title <- paste(seqnames(selGene)[1], start(selGene)[1], end(selGene)[1], sep='_')
 	}
+
 	cat("Ploting ", title, '\n')
 	
 	if (is.null(main)) main <- title
@@ -1037,7 +1170,7 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 		## plot genoset data legend
 		stepHeight <- legendHeight * 2 * 0.9 / ncolor
 		ystart <- 1 - (0.05 + legendHeight * 2 )
-		methyColor <- colorRampPalette(gradient)(ncolor)[1:ncolor]
+		methyColor <- gradient[1:ncolor]
 
 		grid.rect(x0, stepHeight * (1:ncolor) + ystart, width=colWidth, height=stepHeight, 
 							gp=gpar(col=methyColor, fill=methyColor), default.units="npc", just=c("left", "top"))
@@ -1106,12 +1239,18 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 ## 
 ## plot the heatmap data tracks with sample (row) information
 plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL, dataTrackName=NULL, dataInfo=NULL, dataColorMap=NULL, 
-			dataInfoRange=NULL, dataBackground=gray(0.96), minHeatmapColumnWidth=2, labelWidth=0.1, gradient=c("blue", "white", "red"), 
+			dataInfoRange=NULL, dataBackground=gray(0.9), minHeatmapColumnWidth=2, labelWidth=0.1, gradient=c("blue", "white", "red"), 
 			ncolor=16, main='', newPlot=FALSE, sizes=NULL, ...) {
 	
 	if (missing(trackList)) {
 		stop('Please provide "trackList"!')
 	}
+	
+	## convert gradient as a vector of colors if not
+	if (!all(grepl("^#", gradient)) || length(gradient) < 5) {
+		gradient <- colorRampPalette(gradient)(ncolor)
+	} 
+	ncolor <- length(gradient)
 	
 	if (!is(trackList, 'list')) trackList <- list(trackList)
 	dataTrackInd <- which(sapply(trackList, function(x) class(x) == 'DataTrack' && getPar(x, 'type') == 'heatmap'))
@@ -1191,8 +1330,21 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 			displayPars(trackList[[dataTrackInd.i]]) <- list(background.panel=dataBackground)
 		}
 	}
-	plotInfo <- plotTracks(trackList, from=start(grange2show)[1], sizes=trackHeights,
-			to=end(grange2show)[1], chromosome=chromosome,	add=TRUE, main=main, ...)
+	
+	## make sure the transcript names are shown in right side of plot
+	geneRegionTrackInd <- which(sapply(trackList, class) == 'GeneRegionTrack') 
+	if (length(geneRegionTrackInd) > 0) {
+		selTrack <- trackList[[geneRegionTrackInd]]
+		trackLabelWidth <- max(nchar(transcript(selTrack))) * getPar(selTrack, 'fontsize') * 3/5 * getPar(selTrack, 'cex')
+		trackLabelWidthRatio <- trackLabelWidth/as.numeric(convertX(unit(0.9, 'npc'), 'points'))
+		trackLabelWidth.points <- width(grange2show) * trackLabelWidthRatio - 2000
+		if (trackLabelWidth.points < 0) trackLabelWidth.points <- 0
+		start(grange2show) <- start(grange2show) - trackLabelWidth.points
+	}
+	ss <- start(grange2show)[1]
+		
+	plotInfo <- plotTracks(trackList, from=ss, to=end(grange2show)[1], sizes=trackHeights,
+			 chromosome=chromosome,	add=TRUE, main=main, ...)
 	## retrieve the plot coordinates		
 	plotLoc <- coords(plotInfo$title)
 
@@ -1273,6 +1425,8 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 
 				if ('gradient' %in% names(dataColorMap)) {
 					gradient.data <- dataColorMap$gradient
+					if (!all(grepl("^#", gradient.data)) || length(gradient.data) < 5) 
+						gradient.data <- colorRampPalette(gradient.data)(ncolor)
 				}
 				## convert colors to the format like "#FF0000"
 				dataCols <- colnames(dataInfo)[(colnames(dataInfo) %in% names(dataColorMap))]
@@ -1305,9 +1459,9 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 				}
 
 				if (length(otherCol) > 0) {
-					valsScaled <- Gviz:::.z2icol(dataInfo[labels.i,otherCol, drop=FALSE], ncolor, xrange=range(dataInfo[,otherCol,drop=FALSE]))
 					for (i in 1:length(otherCol)) {
-						dataColor[[otherCol[i]]] <- colorRampPalette(gradient.data)(ncolor)[valsScaled[,i]]
+						valsScaled <- Gviz:::.z2icol(dataInfo[labels.i,otherCol, drop=FALSE], length(gradient.data), xrange=range(dataInfo[,otherCol,drop=FALSE]))
+						dataColor[[otherCol[i]]] <- gradient.data[valsScaled[,i]]
 					}
 				}
 			} else {
@@ -1318,7 +1472,7 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 					valsScaled <- Gviz:::.z2icol(dataInfo[labels.i,,drop=FALSE], ncolor, xrange=range(dataInfo))	
 				}
 				for (i in 1:ncol(dataInfo)) {
-					dataColor[[i]] <- colorRampPalette(gradient)(ncolor)[valsScaled[,i]]
+					dataColor[[i]] <- gradient[valsScaled[,i]]
 				}
 			}
 
@@ -1346,7 +1500,7 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 	popViewport(2)
 	
 	plotInfo <- c(plotInfo, labelWidth=labelWidth)
-
+	attr(plotInfo, 'grange2show') <- grange2show
 	return(invisible(plotInfo))
 }
 
@@ -1354,7 +1508,7 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 ## estimate the Gviz track heights
 # 
 # grange2show: a GRanges object specify the start and end of the plot range
-.estimateTrackHeight <- function(trackList, grange2show, sizes=NULL, minPoints=40) {
+.estimateTrackHeight <- function(trackList, grange2show, sizes=NULL, minPoints=50) {
 	
 	trackList <- lapply(trackList, Gviz::subset, from=start(grange2show), to=end(grange2show), chromosome=seqnames(grange2show))
   trackList <- lapply(trackList, Gviz:::setStacks, from=start(grange2show), to=end(grange2show))

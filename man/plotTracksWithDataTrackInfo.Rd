@@ -8,7 +8,7 @@ plot Tracks with additional DataTrack information added to the left of the plot
 }
 \usage{
 plotTracksWithDataTrackInfo(trackList, labels = NULL, grange2show = NULL, dataTrackName = NULL, dataInfo = NULL, dataColorMap = NULL,
-	dataInfoRange = NULL, dataBackground = gray(0.96), minHeatmapColumnWidth = 2, labelWidth = 0.1, 
+	dataInfoRange = NULL, dataBackground = gray(0.9), minHeatmapColumnWidth = 2, labelWidth = 0.1, 
 	gradient = c("blue", "white", "red"), ncolor = 16, main = "", newPlot = FALSE, sizes = NULL, ...)
 }
 \arguments{

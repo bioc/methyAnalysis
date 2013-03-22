@@ -11,7 +11,7 @@ detectDMR.slideWin(methyGenoSet, sampleType, winSize = 250, testMethod = c("ttes
 }
 \arguments{
   \item{methyGenoSet}{
-A MethyGenoSet object includes the methylation data information
+A GenoSet object includes the methylation data information
 }
   \item{sampleType}{
 A vector shows the sample type information

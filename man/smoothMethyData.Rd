@@ -11,7 +11,7 @@ smoothMethyData(methyData, winSize = 250, lib = "IlluminaHumanMethylation450k.db
 }
 \arguments{
   \item{methyData}{
-A MethyLumiM or MethyGenoSet object
+A GenoSet or MethyLumiM object
 }
   \item{winSize}{
 Half sliding window size in bp unit at each side of the probe

@@ -45,11 +45,11 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="IlluminaHumanMethylation450k.db"
 }
 
 
-## smooth the methylation data (MethyLumiM or MethyGenoSet objects) using slide window with fixed windowsize (in bp)
+## smooth the methylation data (MethyLumiM or GenoSet objects) using slide window with fixed windowsize (in bp)
 smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylation450k.db', ...) {
 
-	if (!is(methyData, 'MethyGenoSet') && !is(methyData, 'MethyLumiM')) {
-		stop("methyData should be a MethyGenoSet or MethyLumiM object!")
+	if (!is(methyData, 'GenoSet') && !is(methyData, 'MethyLumiM')) {
+		stop("methyData should be a GenoSet or MethyLumiM object!")
 	}
 	
 	if (is(methyData, 'MethyLumiM')) {
@@ -107,7 +107,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylatio
 	windowRange <- do.call('rbind', windowRange)
 	colnames(windowRange) <- c('startLocation', 'endLocation')
 
-	methyData <- methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)]
+	methyData <- suppressMessages(methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)])
 	exprs(methyData) <- smooth.ratioData[featureNames(methyData),]
 
 	attr(methyData, 'windowIndex') <- windowIndex
@@ -542,6 +542,9 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 		stop('grange should be a GRanges object!')
 	}
 	grange <- checkChrName(grange, addChr=TRUE)	
+	if (!is.null(names(grange))) {
+		if (any(duplicated(names(grange)))) names(grange) <- NULL
+	}
 	
 	## load human genome information and check overlap with known genes
 	if (is.character(annotationDatabase)) {
@@ -575,7 +578,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	
 	## filter the transcripts without matching gene ids
 	tr <- tr[elementLengths(values(tr)$gene_id) > 0]
-	names(tr) <- values(tr)$tx_id
+	names(tr) <- values(tr)$tx_name
 	tr <- checkChrName(tr, addChr=TRUE)
 	tx2gene <- sub('GeneID:', '', unlist(values(tr)$gene_id))
 	names(tx2gene) <- unlist(values(tr)$tx_name)
@@ -604,27 +607,56 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 		values(grange.ext)$id <- names(grange.ext)
 	}
 
+	if (!is.null(values(grange)$Transcript)) {
+		txName.known <- values(grange)$Transcript
+		txName.known[!(txName.known %in% names(tr))] <- NA
+	} else {
+		txName.known <- rep(NA, length(grange))
+	}
+	
 	## ----------------------------------------------------------
 	## Find the nearest TSS and related Transcript
 	tss <- flank(tr, width=-1, start=TRUE)
-	nearestInd <- nearest(grange, tss)
-	# sapply(1:length(grange), function(i) {
-	# 	 distanceToNearest(ranges(grange[i]), ranges(tss[nearestInd[i]]))
-	# })
-	start2tss <- start(grange) - start(tss[nearestInd]) 
-	end2tss <- end(grange) - end(tss[nearestInd]) 
-	dist2tss <- pmin(abs(start2tss), abs(end2tss)) * sign(start2tss)
-	dist2tss[sign(start2tss) * sign(end2tss) < 0] <- 0
-	dist2tss[as.vector(strand(tss[nearestInd])) == '-'] <- dist2tss[as.vector(strand(tss[nearestInd])) == '-'] * -1
-	values(grange)$nearestTx <- values(tss[nearestInd])$tx_name
-	values(grange)$distance2TSS <- dist2tss
-	if (is.null(values(grange)$EntrezID))
-		values(grange)$EntrezID <- tx2gene[values(grange)$nearestTx]
+	if (any(is.na(txName.known))) {
+		naInd <- which(is.na(txName.known))
+		nearestInfo.tr <- IRanges::as.matrix(nearest(grange[naInd], tr, select="all"))
+		
+		nearestTx <- tapply(nearestInfo.tr[,2], nearestInfo.tr[,1], function(ind) names(tr)[ind])
+		multiMapInd <- which(sapply(nearestTx, length) > 1)
+		if (length(multiMapInd) > 0) {
+			multiMapInd <- as.numeric(names(nearestTx)[multiMapInd])
+			for (i in multiMapInd) {
+				nearestTx.i <- nearestTx[[i]]
+				nearestTx[[i]] <- nearestTx.i[nearest(grange[naInd][i], tss[nearestTx.i])]
+			}
+		}
+		txName.known[naInd] <- unlist(nearestTx)
+		values(grange)$Transcript <- txName.known
+	}
+	## add related EntrezID and GeneSymbol
+	if (is.null(values(grange)$EntrezID)) {
+		values(grange)$EntrezID <- tx2gene[values(grange)$Transcript]
+	} else {
+		values(grange)$EntrezID <- sub('^GeneID:', '', values(grange)$EntrezID)
+	}
 	if (is.null(values(grange)$GeneSymbol))
 		values(grange)$GeneSymbol <- probe2gene(values(grange)$EntrezID, lib=EntrezDB, collapse=TRUE)
 
+	## distance to TSS
+	start2tss <- start(grange) - start(tss[txName.known]) 
+	end2tss <- end(grange) - end(tss[txName.known]) 
+	dist2tss <- pmin(abs(start2tss), abs(end2tss)) * sign(start2tss)
+	dist2tss[sign(start2tss) * sign(end2tss) < 0] <- 0
+	dist2tss[as.vector(strand(tss[txName.known])) == '-'] <- dist2tss[as.vector(strand(tss[txName.known])) == '-'] * -1
+	values(grange)$distance2TSS <- dist2tss
+
+	## nearest transcript based on TSS
+	nearestInd.tss <- nearest(grange, tss)
+	values(grange)$nearestTx <- values(tss[nearestInd.tss])$tx_name 
+	dist2tss.nearestTx <- distanceToNearest(grange, tss[nearestInd.tss])$distance
+	
 	## mark promoter based on distance to TSS
-	promoterStatus <- rep(FALSE, length(dist2tss))
+	promoterStatus <- rep(FALSE, length(dist2tss.nearestTx))
 	promoterStatus[dist2tss <= 0 & abs(dist2tss) <= promoterRange] <- TRUE
 	values(grange)$PROMOTER <- promoterStatus
 
@@ -632,8 +664,9 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	## find the overlapping with gene body
 	if (checkGeneBody) {
 		OL.gene <- findOverlaps(grange.ext, tr)	
+				
 		dmr2gene <- cbind(values(grange.ext)$id[queryHits(OL.gene)], 
-			unlist(values(tr)$gene_id)[subjectHits(OL.gene)])
+			sapply(values(tr)$gene_id[subjectHits(OL.gene)], paste, collapse=';'))
 		dupInd <- duplicated(paste(dmr2gene[,1], dmr2gene[,2], sep='_'))
 		if (any(dupInd)) dmr2gene <- dmr2gene[!dupInd,,drop=FALSE]
 		dmr2gene.list <- split(dmr2gene[,2], as.factor(dmr2gene[,1]))
@@ -642,12 +675,21 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 			paste(probe2gene(x, lib=EntrezDB, collapse=TRUE), collapse=';')
 		})
 		dmr2ll <- sapply(dmr2gene.list, function(x) paste(unique(x), collapse=';'))
+		
+		## map to Tx_name
+		dmr2tx <- cbind(values(grange.ext)$id[queryHits(OL.gene)], 
+			sapply(values(tr)$tx_name[subjectHits(OL.gene)], paste, collapse=';'))
+		dupInd <- duplicated(paste(dmr2tx[,1], dmr2tx[,2], sep='_'))
+		if (any(dupInd)) dmr2tx <- dmr2tx[!dupInd,,drop=FALSE]
+		dmr2tx.list <- split(dmr2tx[,2], as.factor(dmr2tx[,1]))
+		dmr2tx <- sapply(dmr2tx.list, paste, collapse=';')
 
-		mapInfo <- matrix("", nrow=length(grange.ext), ncol=2)
-		colnames(mapInfo) <- c("EntrezID_GeneBody", "GeneSymbol_GeneBody")
+		mapInfo <- matrix("", nrow=length(grange.ext), ncol=3)
+		colnames(mapInfo) <- c("EntrezID_GeneBody", "GeneSymbol_GeneBody", "Tx_GeneBody")
 		rownames(mapInfo) <- values(grange.ext)$id
 		mapInfo[names(dmr2ll), 'EntrezID_GeneBody'] <- dmr2ll
 		mapInfo[names(dmr2gene), 'GeneSymbol_GeneBody'] <- dmr2gene
+		mapInfo[names(dmr2tx), 'Tx_GeneBody'] <- dmr2tx
 		values(grange) <- data.frame(as(values(grange), 'data.frame'), mapInfo)		
 	}
 	
@@ -657,38 +699,43 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 		exons <- checkChrName(exons, addChr=TRUE)	
 		OL.exons <- findOverlaps(grange.ext, exons)	
 		hitExons <- exons[subjectHits(OL.exons)]
-		## combine tx_name and exon_rank to get a new exon name
-		if (all(is.na(values(hitExons)$exon_name))) {
-			ll <- sapply(as.list(values(hitExons)$tx_name), length)
-			exon_id <- values(hitExons)$exon_id
-			exon_id <- rep(exon_id, ll)
-			tx_name <- unlist(values(hitExons)$tx_name)
-			exon_rank <- unlist(values(hitExons)$exon_rank)
-			exon_name <- paste(tx_name, exon_rank, sep='_')
-			exon_name <- split(exon_name, exon_id)
-			values(hitExons)$exon_name <- sapply(exon_name, paste, collapse=',')
-		}
-		dmr2exons <- cbind(values(grange.ext)$id[queryHits(OL.exons)], 
-			values(hitExons)$exon_name)
-			
-		dupInd <- duplicated(paste(dmr2exons[,1], dmr2exons[,2], sep='_'))
-		if (any(dupInd)) dmr2exons <- dmr2exons[!dupInd,,drop=FALSE]
-		dmr2exons.list <- split(dmr2exons[,2], as.factor(dmr2exons[,1]))
-		dmr2exons.flat <- sapply(dmr2exons.list, function(x) paste(unique(x), collapse=';'))
+		if (length(hitExons) > 0) {
+			## combine tx_name and exon_rank to get a new exon name
+			if (all(is.na(values(hitExons)$exon_name))) {
+				ll <- sapply(as.list(values(hitExons)$tx_name), length)
+				exon_id <- values(hitExons)$exon_id
+				exon_id <- rep(exon_id, ll)
+				tx_name <- unlist(values(hitExons)$tx_name)
+				exon_rank <- unlist(values(hitExons)$exon_rank)
+				exon_name <- paste(tx_name, exon_rank, sep='_')
+				exon_name <- split(exon_name, exon_id)
+				values(hitExons)$exon_name <- sapply(exon_name, paste, collapse=',')
+			}
+			dmr2exons <- cbind(values(grange.ext)$id[queryHits(OL.exons)], 
+				values(hitExons)$exon_name)
 
-		mapInfo <- matrix("", nrow=length(grange.ext), ncol=2)
-		colnames(mapInfo) <- c("Exons", "Exon1")
-		rownames(mapInfo) <- values(grange.ext)$id
-		mapInfo[names(dmr2exons.flat), 'Exons'] <- dmr2exons.flat
+			dupInd <- duplicated(paste(dmr2exons[,1], dmr2exons[,2], sep='_'))
+			if (any(dupInd)) {
+				dmr2exons <- dmr2exons[!dupInd,,drop=FALSE]
+				hitExons <- hitExons[!dupInd]
+			}
+			dmr2exons.list <- split(dmr2exons[,2], as.factor(dmr2exons[,1]))
+			dmr2exons.flat <- sapply(dmr2exons.list, function(x) paste(unique(x), collapse=';'))
 
-		exon1_status <- sapply(as.list(values(hitExons)$exon_rank), function(x) any(x== 1))
-		if (any(exon1_status)) {
-			id_exon1 <- dmr2exons[exon1_status,1]
-			tx_exon1 <- sapply(as.list(values(hitExons)$tx_name[exon1_status]), head, 1)
-			mapInfo[id_exon1, 'Exon1'] <- tx_exon1
-		}
-		
-		values(grange) <- data.frame(as(values(grange), 'data.frame'), mapInfo) 		
+			uniId <- unique(values(grange.ext)$id)
+			mapInfo <- matrix("", nrow=length(uniId), ncol=2)
+			colnames(mapInfo) <- c("Exons", "Exon1")
+			rownames(mapInfo) <- uniId
+			mapInfo[names(dmr2exons.flat), 'Exons'] <- dmr2exons.flat
+
+			exon1_status <- sapply(as.list(values(hitExons)$exon_rank), function(x) any(x== 1))
+			if (any(exon1_status)) {
+				id_exon1 <- dmr2exons[exon1_status,1]
+				tx_exon1 <- sapply(as.list(values(hitExons)$tx_name[exon1_status]), head, 1)
+				mapInfo[id_exon1, 'Exon1'] <- tx_exon1
+			}
+			values(grange) <- suppressWarnings(data.frame(as(values(grange), 'data.frame'), mapInfo[values(grange.ext)$id,])) 		
+		} 
 	}	
 	
 	## ----------------------------------------------------------

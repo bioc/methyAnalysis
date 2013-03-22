@@ -156,8 +156,8 @@ setMethod("combine", signature=c(x="MethyGenoSet", y="MethyGenoSet"), function(x
 	if (is.null(x.comb@history$lumiVersion) && nrow(x@history) > 0) {
 		x.comb@history <- data.frame(x.comb@history, lumiVersion=rep(NA, nrow(x.comb@history)))
 	} 
-	lumiVersion <- packageDescription('lumi')$Version
-	x.comb@history<- rbind(x.comb@history, data.frame(submitted=history.submitted,finished=history.finished,command=history.command, lumiVersion=lumiVersion))
+	packageVersion <- paste('methyAnalysis', packageDescription('methyAnalysis')$Version, sep='_')
+	x.comb@history<- rbind(x.comb@history, data.frame(submitted=history.submitted,finished=history.finished,command=history.command, lumiVersion=packageVersion))
 	return(x.comb)
 })
 
@@ -186,8 +186,8 @@ setMethod("[", "MethyGenoSet", function(x, i, j, ..., drop = FALSE)	{
 	if (is.null(x@history$lumiVersion) && nrow(x@history) > 0) {
 		x@history <- data.frame(x@history, lumiVersion=rep(NA, nrow(x@history)))
 	}
-	lumiVersion <- packageDescription('lumi')$Version
-	x@history<- rbind(x@history, data.frame(submitted=history.submitted,finished=history.finished, command=history.command, lumiVersion=lumiVersion))
+	packageVersion <- paste('methyAnalysis', packageDescription('methyAnalysis')$Version, sep='_')
+	x@history<- rbind(x@history, data.frame(submitted=history.submitted,finished=history.finished, command=history.command, lumiVersion=packageVersion))
 	
 	return(x)
 })
