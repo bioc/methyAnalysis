@@ -1014,7 +1014,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			}
 			
 			## plot rectangle around legend
-			grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1, fill=rgb(1,1,1, alpha=0)), default.units="npc", just=c("left", "top"))
+			# grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1, fill=rgb(1,1,1, alpha=0)), default.units="npc", just=c("left", "top"))
 			
 			plotInfo <- c(plotInfo, layout.width=layout.width)
 			popViewport(1)
@@ -1226,7 +1226,7 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 		}
 		
 		## plot rectangle around legend
-		grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1, fill=rgb(1,1,1, alpha=0)), default.units="npc", just=c("left", "top"))
+		# grid.rect(0, 1, width=1, height=min(1, abs(1 - ystart + 0.03)), gp=gpar(col=1, lty=1, lwd=1, fill=rgb(1,1,1, alpha=0)), default.units="npc", just=c("left", "top"))
 
 		plotInfo <- c(plotInfo, layout.width=layout.width)
 		popViewport(1)
