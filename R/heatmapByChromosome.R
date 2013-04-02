@@ -253,7 +253,7 @@ transcriptDb2GeneRegionTrackByGene <- function(genomicFeature, selGene, extendRa
 				tss.x <- ifelse(as.character(strand(x)[1]) == '-', max(end(x)), min(start(x)))
 			}))
 		} else {
-			utr5.ind <- which(tolower(feature(genomicFeature)[selInd]) == 'utr5')
+			utr5.ind <- which(tolower(feature(genomicFeature)) == 'utr5')
 			if (length(utr5.ind) > 0) selTrans <- selTrans[utr5.ind]
 			tss <- ifelse(as.character(strand(selTrans)) == '-', end(selTrans), start(selTrans))
 		}

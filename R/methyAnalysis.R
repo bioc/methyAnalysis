@@ -653,7 +653,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	## nearest transcript based on TSS
 	nearestInd.tss <- nearest(grange, tss)
 	values(grange)$nearestTx <- values(tss[nearestInd.tss])$tx_name 
-	dist2tss.nearestTx <- distanceToNearest(grange, tss[nearestInd.tss])$distance
+	dist2tss.nearestTx <- as.data.frame(distanceToNearest(grange, tss[nearestInd.tss]))[['distance']]
 	
 	## mark promoter based on distance to TSS
 	promoterStatus <- rep(FALSE, length(dist2tss.nearestTx))
