@@ -1,4 +1,32 @@
 
+## get the methylation probe location information, and return as a GRanges object
+getMethyProbeLocation <- function(probes, lib="IlluminaHumanMethylation450k.db") {
+	
+	if (!require(lib, character.only=TRUE)) stop(paste(lib, 'is not installed!'))
+	
+	if (is(probes, 'eSet')) probes <- featureNames(probes)
+	
+	## Check whether multiple versions of chromosome information is available,
+	## If so, only use the latest version.
+	chrPattern <- paste(sub("\\.db$", "", lib), "CHR", sep="")
+	chrObjs <- ls(paste("package:", lib, sep=""), pattern=paste(chrPattern, "[0-9]+$", sep=""))
+	if (length(chrObjs) > 1) {
+		chrVersion <- sub(".*[^0-9]([0-9]+)$", "\\1", chrObjs)
+		obj <- get(chrObjs[which.max(as.numeric(chrVersion))])
+	} else {
+		obj <- get(chrPattern)
+	}
+	pp <- probes[probes %in% keys(obj)]
+  chr[pp] <- sapply(AnnotationDbi::mget(pp, obj), function(x) x[1])
+
+  obj <- get(paste(sub("\\.db$", "", lib), "CPGCOORDINATE", sep=""))
+	pp <- probes[probes %in% keys(obj)]
+  loc[pp] <- sapply(AnnotationDbi::mget(pp, obj), function(x) x[1])
+	methyGrange <- GRanges(seqnames=chr, ranges=IRanges(start=loc, width=1), strand='*', ProbeID=probes)
+	names(methyGrange) <- probes
+	return(methyGrange)
+}
+
 
 
 ## convert MethyLumiM class object to GenoSet class object
@@ -46,7 +74,7 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="IlluminaHumanMethylation450k.db"
 
 
 ## smooth the methylation data (MethyLumiM or GenoSet objects) using slide window with fixed windowsize (in bp)
-smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylation450k.db', ...) {
+smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylation450k.db', bigMatrix=FALSE, dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...) {
 
 	if (!is(methyData, 'GenoSet') && !is(methyData, 'MethyLumiM')) {
 		stop("methyData should be a GenoSet or MethyLumiM object!")
@@ -57,58 +85,69 @@ smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylatio
 	} else {
 		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=space(locData(methyData)), POSITION=start(methyData), END=end(methyData))
 	}
-	ratioData <- as.data.frame(exprs(methyData))
-
 	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
+	
+	ratioData <- assayData(methyData)$exprs
+	if (class(ratioData) == 'BigMatrix') {
+		bigMatrix <- TRUE
+	}
+
+	index <- 1:nrow(ratioData)
 	# remove those probes lack of position information
 	rmInd <- which(is.na(chrInfo$POSITION) | chrInfo$CHROMOSOME == '' )
-	if (length(rmInd) > 0)	{
-		ratioData <- ratioData[-rmInd,]
-		chrInfo <- chrInfo[-rmInd,]
-	}
+	if (length(rmInd) > 0)	index <- index[-rmInd]
 	
 	# Sort the ratioData by chromosome and location
-	ord <- order(chrInfo$CHROMOSOME, chrInfo$POSITION, decreasing=FALSE)
-	ratioData <- ratioData[ord,]
-	chrInfo <- chrInfo[ord,]
+	ord <- order(chrInfo$CHROMOSOME[index], chrInfo$POSITION[index], decreasing=FALSE)
+	index <- index[ord]
+	
+	if (bigMatrix) {
+		methyData <- asBigMatrix(methyData, rowInd=index, savePrefix=savePrefix.bigMatrix, saveDir=dir.bigMatrix)
+	} else {
+		methyData <- methyData[index,]
+	}
+	ratioData <- assayData(methyData)$exprs
+	chrInfo <- chrInfo[index,]
+	index <- 1:nrow(ratioData)
 	
 	# split data by Chromosome 
-	ratioData.chrList <- split(ratioData, as.character(chrInfo$CHROMOSOME))
+	index.chrList <- split(index, as.character(chrInfo$CHROMOSOME))
 	chrInfoList <- split(chrInfo, as.character(chrInfo$CHROMOSOME))
 	windowIndex <- vector(mode='list', length=length(chrInfoList))
 	windowRange <- vector(mode='list', length=length(chrInfoList))
-	smooth.ratioData <- lapply(seq(ratioData.chrList), function(i) {
- 
-		ratioData.i <- as.matrix(ratioData.chrList[[i]])
+	
+	for (i in 1:length(index.chrList)) {
+		index.i <- index.chrList[[i]]
 		chrInfo.i <- chrInfoList[[i]]
 		chr.i <- chrInfo.i$CHROMOSOME[1]
 		cat(paste("Smoothing Chromosome", chr.i, "...\n"))
-
+    
 		# return the index of sorted probes in each slide window
 		windowIndex.i <- eval(call(".setupSlidingTests", pos_data=chrInfo.i$POSITION, winSize=winSize))
 		names(windowIndex.i) <- chrInfoList[[i]]$PROBEID
 		smooth.ratio.i <- sapply(windowIndex.i, function(ind) {
 			# average the values in slide window and perform test
-			smooth.ij <- colMeans(ratioData.i[ind,,drop=FALSE])
+			smooth.ij <- colMeans(ratioData[index.i[ind],,drop=FALSE])
 			return(smooth.ij)
 		})
 		smooth.ratio.i <- t(smooth.ratio.i) 
-		windowIndex[[i]] <<- windowIndex.i
+		## replace the data with smoothed ones
+		ratioData[index.i,] <- smooth.ratio.i
+		
+		windowIndex[[i]] <- windowIndex.i
 		windowRange.i <- sapply(windowIndex.i, function(ind) {
 			# average the values in slide window and perform test
 			range.ij <- range(chrInfo.i$POSITION[ind])
 			return(range.ij)
 		})
-		windowRange[[i]] <<- t(windowRange.i)
-		cat("\n")
-		return(smooth.ratio.i)	
-	})
-	smooth.ratioData <- do.call('rbind', smooth.ratioData)
+		windowRange[[i]] <- t(windowRange.i)
+	}
 	windowRange <- do.call('rbind', windowRange)
 	colnames(windowRange) <- c('startLocation', 'endLocation')
 
-	methyData <- suppressMessages(methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)])
-	exprs(methyData) <- smooth.ratioData[featureNames(methyData),]
+	exprs(methyData) <- ratioData
+	# methyData <- suppressMessages(methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)])
+	# exprs(methyData) <- smooth.ratioData[featureNames(methyData),]
 
 	attr(methyData, 'windowIndex') <- windowIndex
 	attr(methyData, 'windowRange') <- windowRange
@@ -653,7 +692,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	## nearest transcript based on TSS
 	nearestInd.tss <- nearest(grange, tss)
 	values(grange)$nearestTx <- values(tss[nearestInd.tss])$tx_name 
-	dist2tss.nearestTx <- as.data.frame(distanceToNearest(grange, tss[nearestInd.tss]))[['distance']]
+	suppressWarnings(dist2tss.nearestTx <- as.data.frame(distanceToNearest(grange, tss[nearestInd.tss]))[['distance']])
 	
 	## mark promoter based on distance to TSS
 	promoterStatus <- rep(FALSE, length(dist2tss.nearestTx))
@@ -845,7 +884,8 @@ export.DMRInfo	<- function(DMRInfo.ann, methyData=NULL, savePrefix='') {
 
 	
 	## output the sigDMRInfo as a bed file
-	export(DMRInfo.ann$sigDMRInfo, paste('DMRInfo_', savePrefix, '_', Sys.Date(), '.bed', sep=''))
+	fileName.i <- make.names(paste('DMRInfo_', savePrefix, '_', Sys.Date(), '.bed', sep=''))
+	export(DMRInfo.ann$sigDMRInfo, fileName.i, format='bed')
 	
 	## output as a csv file
 	sigDMRInfo <- as.data.frame(DMRInfo.ann$sigDMRInfo)

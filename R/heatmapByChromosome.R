@@ -656,7 +656,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		stop('"methyGenoSet" must be a GenoSet object.')
 	
 	if (useBetaValue) {
-		methyGenoSet <- estimateBeta(methyGenoSet)
+		assayDataElement(methyGenoSet, 'exprs') <- m2beta(assayData(methyGenoSet)$exprs)
 		if (th < 1) {
 			up.lim <- max(quantile(abs(assayData(methyGenoSet)$exprs), th, na.rm=TRUE) - 0.5, 0.5 - quantile(abs(assayData(methyGenoSet)$exprs), 1-th, na.rm=TRUE))
 			ylim <- c(0.5 - up.lim, 0.5 + up.lim)

@@ -12,10 +12,11 @@ importMethodsFrom(Biobase, annotation, "annotation<-",
 
 importClassesFrom(methylumi, MethyLumiM)
 
-importFrom(lumi, getChrInfo, getHistory, estimateBeta, m2beta, addAnnotationInfo)
-importMethodsFrom(methylumi, methylated, unmethylated, "detection", "methylated<-", "unmethylated<-", "detection<-", "betas", "betas<-",  combine, "[", "dataType", "dataType<-")
-
-importFrom(methylumi, estimateM)
+importFrom(lumi, getChrInfo, getHistory, estimateBeta, m2beta, addAnnotationInfo, estimateM)
+importMethodsFrom(lumi, asBigMatrix)
+importMethodsFrom(methylumi, methylated, unmethylated, "detection", "methylated<-", 
+	"unmethylated<-", "detection<-", "betas", "betas<-",  combine, "[", "dataType", 
+	"dataType<-")
 
 importFrom(annotate, lookUp, getSYMBOL)
 importFrom(AnnotationDbi, get, mget)
@@ -26,24 +27,33 @@ importFrom(biomaRt, listAttributes, getBM)
 importClassesFrom(genoset, GenoSet)
 importClassesFrom(IRanges, IRanges, RangedData)
 importClassesFrom(GenomicRanges, GRanges)
-importMethodsFrom(IRanges, space, start, end, width, universe, values, "values<-", unlist, as.vector, as.list, as.matrix)
-importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, "seqnames<-", "seqlevels<-", match, overlapsAny, as.data.frame, distanceToNearest)
-
+importMethodsFrom(IRanges, space, start, end, width, universe, values, "values<-",
+	unlist, as.vector, as.list, as.matrix)
+importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, 
+	"seqnames<-", "seqlevels<-", match, overlapsAny, as.data.frame, distanceToNearest)
 importMethodsFrom(genoset, locData, "locData<-", chrNames, chrInfo)
+
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
 importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts, loadFeatures)
 importFrom(IRanges, IRanges, RangedData)
 importFrom(genoset, GenoSet)
 importFrom(GenomicRanges, GRanges)
-importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, BiomartGeneRegionTrack, 
-	UcscTrack, DataTrack, stacks, plotTracks, coords)
-importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-", displayPars, "displayPars<-", getPar, transcript)
+importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, 
+	BiomartGeneRegionTrack, UcscTrack, DataTrack, stacks, plotTracks, coords)
+importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-", 
+	displayPars, "displayPars<-", getPar, transcript)
 
 
 exportClasses(MethyGenoSet)
-exportMethods(exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-", "unmethylated<-", "detection<-", getHistory, combine, "[", coerce, locData, "locData<-", chrNames)
+exportMethods(exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-",
+	"unmethylated<-", "detection<-", getHistory, combine, "[", coerce, locData, 
+	"locData<-", chrNames)
 
-export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin, export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, heatmapByChromosome, plotHeatmapByGene, plotMethylationHeatmapByGene, plotTracksWithDataTrackInfo, checkChrName
+export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin, 	
+	export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, 
+	MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, 
+	heatmapByChromosome, plotHeatmapByGene, plotMethylationHeatmapByGene, 
+	plotTracksWithDataTrackInfo, checkChrName
 )
 
 
