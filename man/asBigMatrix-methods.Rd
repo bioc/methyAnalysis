@@ -21,6 +21,10 @@
 \item{\dots}{ optional arguments to \code{\link[bigmemoryExtras]{BigMatrix}} }
 }
 \details{
+This function does not work in Windows because the dependent package bigmemoryExtras does not support it. 
+In order to make lumi package still compilation under Windows, I deliberately remove the dependency of bigmemoryExtras package.
+As a result, users need to manually load the bigmemoryExtras function before using this function.
+
 The BigMatrix data files will be save in the directory file.path(saveDir, paste(savePrefix, '_bigmat', sep=''))
 }
 \seealso{

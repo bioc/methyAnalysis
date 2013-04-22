@@ -248,7 +248,6 @@ setAs("GenoSet", "MethyGenoSet", function(from) {
 })
 
 
-
 ## Example
 # library(methyAnalysis)
 # data(exampleMethyGenoSet)
