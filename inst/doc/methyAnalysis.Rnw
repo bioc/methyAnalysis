@@ -56,7 +56,7 @@ The package mainly provides functions in the following aspects:
 
 \section{MethyGenoSet-class}
 
-In order to keep the chromosome location information together with the data, we defined a new \Rclass{MethyGenoSet} class as a direct extension of the \Rclass{GenoSet} class in the \Rpackage{genoset} package. The \Rclass{GenoSet} class is an extension of \Rclass{eSet} class. It keeps the chromosome location information in an additional \Rslot{locData} slot, a \Rclass{RangedData} object. For convenience of retrieving the methylation data, we keeps the DNA methylation data (using M-value [2] by default) in the \Rslot{exprs} \Rslot{assayData} element. Users can easily retrieve the methylation data by using \Rmethod{exprs} method.
+In order to keep the chromosome location information together with the data, we defined a new \Rclass{MethyGenoSet} class as a direct extension of the \Rclass{GenoSet} class in the \Rpackage{genoset} package. The \Rclass{GenoSet} class is an extension of \Rclass{eSet} class. It keeps the chromosome location information in an additional \Rslot{locData} slot, a \Rclass{GRanges} or \Rclass{RangedData} object. For convenience of retrieving the methylation data, we keeps the DNA methylation data (using M-value [2] by default) in the \Rslot{exprs} \Rslot{assayData} element. Users can easily retrieve the methylation data by using \Rmethod{exprs} method.
 
 
 \subsection{Example dataset}
@@ -81,6 +81,11 @@ dim(exprs(exampleMethyGenoSet))
 ## Sample information
 pData(exampleMethyGenoSet)
 @
+
+\subsection{Input methylation data from other packages}
+Lumi or methylumi package
+
+
 
 
 \section{Identifying Differentially Methylated Regions (DMR)}

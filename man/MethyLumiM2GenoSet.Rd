@@ -7,7 +7,7 @@ Coerce objects of MethyLumiM-class to MethyGenoSet
     Coerce objects of \code{\link{MethyLumiM-class}} to \code{MethyGenoSet}
 }
 \usage{
-MethyLumiM2GenoSet(methyLumiM, lib = "IlluminaHumanMethylation450k.db")
+MethyLumiM2GenoSet(methyLumiM, lib = "FDb.InfiniumMethylation.hg19")
 }
 \arguments{
   \item{methyLumiM}{
@@ -29,12 +29,12 @@ Pan Du
 }
 \examples{
 
-if (require(IlluminaHumanMethylation450k.db)) {
+if (require(FDb.InfiniumMethylation.hg19)) {
 	data(exampleMethyGenoSet)
 	## set as MethyLumiM object
 	methyLumiM <- as(exampleMethyGenoSet, 'MethyLumiM')
 	## set back as MethyGenoSet object
-	methyGenoSet <- MethyLumiM2GenoSet(methyLumiM, lib = "IlluminaHumanMethylation450k.db")
+	methyGenoSet <- MethyLumiM2GenoSet(methyLumiM, lib = "FDb.InfiniumMethylation.hg19")
 	class(methyGenoSet)
 }
 

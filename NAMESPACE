@@ -13,7 +13,7 @@ importMethodsFrom(Biobase, annotation, "annotation<-",
 importClassesFrom(methylumi, MethyLumiM)
 
 importFrom(lumi, getChrInfo, getHistory, estimateBeta, m2beta, addAnnotationInfo, estimateM)
-importMethodsFrom(lumi, asBigMatrix)
+# importMethodsFrom(lumi, asBigMatrix)
 importMethodsFrom(methylumi, methylated, unmethylated, "detection", "methylated<-", 
 	"unmethylated<-", "detection<-", "betas", "betas<-",  combine, "[", "dataType", 
 	"dataType<-")

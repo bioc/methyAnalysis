@@ -11,7 +11,7 @@ plotMethylationHeatmapByGene(selGene, methyGenoSet, gene2tx = NULL, tx2exon = NU
 	phenoData = NULL, sortBy=c('expression', 'methylation', NA), renameExon = FALSE, showAllTx = TRUE, useBetaValue = TRUE, 
 	includeGeneBody = FALSE, CpGInfo = NULL, genomicFeature = NULL, phenoColor = list(gradient=c("green", "black", "red")), th = 0.99, 
 	title.suffix = NULL, addLegend = TRUE, methylationLegendTitle = NULL, expressionLegendTitle = "Expression\n(log2-RPKM)", 
-	gradient = c("blue", "white", "red"), ncolor = 16, main = NULL, newPlot = TRUE, ...)
+	gradient = c("blue", "white", "red"), ncolor = 16, main = NULL, newPlot = TRUE, selSample = NULL, ...)
 }
 \arguments{
   \item{selGene}{
@@ -85,6 +85,9 @@ title of the plot. If it is null, then the Gene Symbol will be the plot title
 }
   \item{newPlot}{
 whether to create a new plot or add it to previous plot
+}
+  \item{selSample}{
+subset of samples for plotting. It is designed for BigMatrix, which have to extract the data at the last moment.
 }
   \item{\dots}{
 other parameters used by heatmapByChromosome

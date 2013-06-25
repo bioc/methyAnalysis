@@ -48,7 +48,7 @@
 }
 \section{Slots}{
    \describe{
-   	  \item{\code{locData}:}{a RangedData object, inherited from \code{\link[genoset]{GenoSet}}}
+   	  \item{\code{locData}:}{a GRanges or RangedData object, inherited from \code{\link[genoset]{GenoSet}}}
       \item{\code{assayData}:}{ contains equal dimensional matrices:
  		\code{exprs} (contains the methylation M-value, same as \code{\link[methylumi]{MethyLumiM-class}}),
  		\code{methylated} (contains the methylated probe intensities. Same as \code{\link[methylumi]{MethyLumiM-class}}), 

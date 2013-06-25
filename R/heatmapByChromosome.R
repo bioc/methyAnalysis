@@ -1,16 +1,18 @@
 
 ## Example:
 ## transTrack <- createTranscriptTrack(gene='55432', genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', lib='org.Hs.eg.db', extendRange=c(2000, 2000))
-createTranscriptTrack <- function(gene, 
-				genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
-				lib='org.Hs.eg.db', 
-				genome='hg19', 
-				extendRange=c(2000, 2000), 
-				includeOtherGene=FALSE,
-				includeGeneBody=TRUE, 
-				thinBox_utrOnly=FALSE,
-				background.title='gray', 
-				fill="#8282d2", ...) {
+createTranscriptTrack <- function(
+		gene, 
+		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
+		lib='org.Hs.eg.db', 
+		genome='hg19', 
+		extendRange=c(2000, 2000), 
+		includeOtherGene=FALSE,
+		includeGeneBody=TRUE, 
+		thinBox_utrOnly=FALSE,
+		background.title='gray', 
+		fill="#8282d2", 
+		...) {
 	
 	if (length(extendRange) == 1) {
 		extendRange <- rep(extendRange, 2)
@@ -287,16 +289,16 @@ transcriptDb2GeneRegionTrackByGene <- function(genomicFeature, selGene, extendRa
 ## build annotation tracks 
 ## return value: a list of Tracks (Gviz) with attribute "grange2show"
 buildAnnotationTracks <- function(
-					gene, 								# Entrez gene ids or a GRanges object with length equals one
-					extendRange=c(2000, 2000), # extended range on each side of the	gene
-					includeGeneBody=TRUE, # whether to include genebody of the provided gene
-					cytobandInfo=NULL,		# cytoband information, 
-					CpGInfo=NULL,					# CpG-island information, GRanges or bed file are supported
-					genomeAxis=TRUE,			# whether to add genome axis or not
-					lib='org.Hs.eg.db',		# gene annotation library
-					genome='hg19',				# genome version
-					genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
-					... ) {
+		gene, 		# Entrez gene ids or a GRanges object with length equals one
+		extendRange=c(2000, 2000), # extended range on each side of the	gene
+		includeGeneBody=TRUE, # whether to include genebody of the provided gene
+		cytobandInfo=NULL,		# cytoband information, 
+		CpGInfo=NULL,		# CpG-island information, GRanges or bed file are supported
+		genomeAxis=TRUE,			# whether to add genome axis or not
+		lib='org.Hs.eg.db',		# gene annotation library
+		genome='hg19',				# genome version
+		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
+		... ) {
 	
 	## check parameters
 	if (length(gene) > 1) {
@@ -370,32 +372,31 @@ buildAnnotationTracks <- function(
 }
 
 
-
-
 heatmapByChromosome <- function(
-					genoSet, 				# GenoSet object	
-					gene, 								# Entrez gene ids or a GRanges object with length equals one
-					annotationTracks=NULL,
-					otherTrackList=NULL, 	# other Tracks objects supported by Gviz
-					phenoData=NULL, 			# Expression profile
-					phonoColorMap = NULL,	# a list of colormaps for every column-side rows
-					extendRange=c(2000, 2000), # extended range on each side of the	gene
-					includeGeneBody=TRUE, # wether to include genebody of the provided gene
-					showFullModel=FALSE, # only valid when includeGeneBody is FALSE
-					sortSample=TRUE,			# whether to sort samples based on intensity profiles
-					cytobandInfo=NULL,		# cytoband information, 
-					CpGInfo=NULL,					# CpG-island information, GRanges or bed file are supported
-					genomeAxis=TRUE,			# whether to add genome axis or not
-					dataTrackName='Methylation Profile',	# title of the data track
-					lib='org.Hs.eg.db',		# gene annotation library
-					genome='hg19',				# genome version
-					genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
-					gradient=c("blue", "white", "red"), # gradient color map
-					ncolor=16, 						# number of color levels
-					ylim=NULL,
-					th=0.99,
-					main='',							# title
-					... ) {
+		genoSet,	# GenoSet object	
+		gene, 	# Entrez gene ids or a GRanges object with length equals one
+		annotationTracks=NULL,
+		otherTrackList=NULL, # other Tracks objects supported by Gviz
+		phenoData=NULL, 			# Expression profile
+		phonoColorMap = NULL,	# a list of colormaps for every column-side rows
+		extendRange=c(2000, 2000), # extended range on each side of the	gene
+		includeGeneBody=TRUE, # wether to include genebody of the provided gene
+		showFullModel=FALSE, # only valid when includeGeneBody is FALSE
+		sortSample=TRUE,			# whether to sort samples based on intensity profiles
+		cytobandInfo=NULL,		# cytoband information, 
+		CpGInfo=NULL,		# CpG-island information, GRanges or bed file are supported
+		genomeAxis=TRUE,			# whether to add genome axis or not
+		dataTrackName='Methylation Profile',	# title of the data track
+		lib='org.Hs.eg.db',		# gene annotation library
+		genome='hg19',				# genome version
+		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
+		gradient=c("blue", "white", "red"), # gradient color map
+		ncolor=16, 						# number of color levels
+		ylim=NULL,
+		th=0.99,
+		main='',							# title
+		selSample=NULL,  ## designed for BigMatrix, which have to extract the data at last moment.
+		... ) {
 	
 	## check parameters
 	if (length(gene) > 1) {
@@ -454,7 +455,7 @@ heatmapByChromosome <- function(
 		# 	}
 		# }
 	}
-	
+
 	if (is.null(annotationTracks)) {
 		annotationTracks <- buildAnnotationTracks(gene=gene, extendRange=extendRange, 
 							includeGeneBody=includeGeneBody, cytobandInfo=cytobandInfo, CpGInfo=CpGInfo,
@@ -486,10 +487,17 @@ heatmapByChromosome <- function(
 		## select related methylation data	
 		genoSet <- checkChrName(genoSet, addChr=TRUE)
 		grange.data <- suppressWarnings(as(locData(genoSet), 'GRanges'))
-		if (packageVersion('GenomicRanges') < '1.11.0') {
-			selMethyData <- genoSet[!is.na(match(grange.data, grange2show)),]
+		if (is.null(selSample)) {
+			selSample <- 1:ncol(genoSet)
 		} else {
-			selMethyData <- genoSet[overlapsAny(grange.data, grange2show),]
+			if (is.numeric(selSample)) selSample <- sampleNames(genoSet)[selSample]
+			if (!is.null(phenoData)) phenoData <- phenoData[selSample,,drop=FALSE]
+			if (length(sortSample) == ncol(genoSet)) sortSample <- sortSample[selSample]
+		} 
+		if (packageVersion('GenomicRanges') < '1.11.0') {
+			selMethyData <- genoSet[!is.na(match(grange.data, grange2show)),selSample]
+		} else {
+			selMethyData <- genoSet[overlapsAny(grange.data, grange2show),selSample]
 		}
 		
 		if (nrow(selMethyData) == 0) {
@@ -636,11 +644,33 @@ heatmapByChromosome <- function(
 ##	 CpGInfo: a bed file or GRanges for CpG island information
 ##	 genomicFeature: used by buildAnnotationTracks function
 ##	 phenoColor: a vector of colors for pheno types.
-plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx2exon=NULL, expression.tx=NULL, expression.exon=NULL,  
-	phenoData=NULL, sortBy=c('expression', 'methylation', NA), renameExon=FALSE, showAllTx=TRUE, useBetaValue=TRUE, includeGeneBody=FALSE,  
-	CpGInfo=NULL, genomicFeature=NULL, phenoColor=list(gradient=c("green", "black", "red")), th=0.99, title.suffix=NULL, addLegend=TRUE, 
-	methylationLegendTitle=NULL, expressionLegendTitle='Expression\n(log2-RPKM)', gradient=c("blue", "white", "red"), 
-	ncolor=16, main=NULL, newPlot=TRUE, ...) {
+plotMethylationHeatmapByGene <- function(
+		selGene, 
+		methyGenoSet, 
+		gene2tx=NULL, 
+		tx2exon=NULL, 
+		expression.tx=NULL, 
+		expression.exon=NULL,  
+		phenoData=NULL, 
+		sortBy=c('expression', 'methylation', NA), 
+		renameExon=FALSE, 
+		showAllTx=TRUE, 
+		useBetaValue=TRUE, 
+		includeGeneBody=FALSE, 
+		CpGInfo=NULL, 
+		genomicFeature=NULL, 
+		phenoColor=list(gradient=c("green", "black", "red")), 
+		th=0.99, 
+		title.suffix=NULL, 
+		addLegend=TRUE, 
+		methylationLegendTitle=NULL,
+		expressionLegendTitle='Expression\n(log2-RPKM)', 
+		gradient=c("blue", "white", "red"), 
+		ncolor=16, 
+		main=NULL, 
+		newPlot=TRUE,  
+		selSample=NULL,  ## designed for BigMatrix, which have to extract the data at last moment.
+		...) {
 		
 	sortBy <- as.character(sortBy)
 	sortBy <- match.arg(sortBy)
@@ -686,10 +716,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		rm(expression.tx)
 
 		if (ncol(expMatrix) != ncol(methyGenoSet)) {
-			warnings('Dimensions of expression.tx do not match methyGenoSet!')
-			commSample <- intersect(colnames(expMatrix), sampleNames(methyGenoSet))
-			expMatrix <- expMatrix[,commSample, drop=FALSE]
-			methyGenoSet <- methyGenoSet[,commSample]
+			stop('Dimensions of expression.tx do not match methyGenoSet!')
 		}
 		
 	} else {
@@ -709,18 +736,7 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		rm(expression.exon); gc()
 	
 		if (ncol(expMatrix.exon) != ncol(expMatrix)) {
-			warnings('Dimensions of exon data do not match transcript data!')
-			commSample <- intersect(colnames(expMatrix.exon), colnames(expMatrix))
-			if (ncol(methyGenoSet) == ncol(expMatrix)) {
-				ind <- 1:ncol(expMatrix)
-				names(ind) <- colnames(expMatrix)
-			} else {
-				ind <- 1:ncol(expMatrix.exon)
-				names(ind) <- colnames(expMatrix.exon)
-			}
-			expMatrix.exon <- expMatrix.exon[,commSample]
-			expMatrix <- expMatrix[,commSample]
-			methyGenoSet <- methyGenoSet[,ind[commSample]]
+			stop('Dimensions of exon data do not match transcript data!')
 		}
 	} else {
 		expMatrix.exon <- NULL
@@ -772,6 +788,16 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			}
 			names(phenoColor) <- allPhenoName
 		}		
+	}
+	## subset of the data, designed for BigMatrix
+	if (is.null(selSample)) {
+		selSample <- 1:ncol(methyGenoSet)
+	} else if (is.logical(selSample)){
+		selSample <- which(selSample)
+	} else if (is.character(selSample)) {
+		ind <- 1:ncol(methyGenoSet)
+		names(ind) <- sampleNames(methyGenoSet)
+		selSample <- ind[selSample]
 	}
 
 	plotResult <- lapply(1:length(sigGene2tx), function(i) {
@@ -831,11 +857,15 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 		}
 		
 		## includeExon1
-		ord <- 1:ncol(methyGenoSet)
-		if (!is.null(expMatrix.exon) && !is.null(tx2exon)) {
-			selExon1 <- tx2exon[selTx]
-			selExon1 <- selExon1[selExon1 %in% rownames(expMatrix.exon)]
-			expProfile.exon1 <- t(expMatrix.exon[selExon1,,drop=FALSE])
+		rk <- 1:ncol(methyGenoSet)
+		if (!is.null(expMatrix.exon)) {
+			if (!is.null(tx2exon)) {
+				selExon1 <- tx2exon[selTx]
+				selExon1 <- selExon1[selExon1 %in% rownames(expMatrix.exon)]
+				expProfile.exon1 <- t(expMatrix.exon[selExon1,,drop=FALSE])
+			} else {
+				expProfile.exon1 <- t(expMatrix.exon[selTx,,drop=FALSE])
+			}
 			if (renameExon) {
 				# colnames(expProfile.exon1) <- paste(selTx, 'exon1', sep='_')
 				# sigExon1 <- paste(sigTx, 'exon1', sep='_')
@@ -849,11 +879,18 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			selCol <- c(sigExon1, sigTx)
 			selCol <- selCol[selCol %in% colnames(expProfile)]
 			## sort only based on significant exon1 and transcript
-			ord <- order(rowMeans(expProfile[, selCol, drop=FALSE], na.rm=TRUE), decreasing=FALSE)
+			rk <- rank(rowMeans(expProfile[, selCol, drop=FALSE], na.rm=TRUE))
 		} else if (!is.null(expProfile)) {
 			## sort only based on significant Tx
-			ord <- order(rowMeans(expProfile[,sigTx,drop=FALSE], na.rm=TRUE), decreasing=FALSE)
+			rk <- rank(rowMeans(expProfile[,sigTx,drop=FALSE], na.rm=TRUE))
 		}
+		selSample <- selSample[order(rk[selSample], decreasing=FALSE)]
+
+		## Gviz changes the row order of heatmap since 1.4.0
+		if (packageVersion('Gviz') > '1.4.0') {
+			selSample <- rev(selSample)
+		} 
+		
 		## combine phenoData with expProfile if both exist
 		if (!is.null(phenoData)) {
 			## combine the phenoData with the expProfile matrix
@@ -886,17 +923,11 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 			pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
 		} 
 
-		if (sortBy == 'expression' && !is.null(expProfile)) {
-			plotInfo <- heatmapByChromosome(methyGenoSet[, ord,drop=F],	gene.i,	annotationTracks=annotationTracks, phenoData=expProfile[ord,,drop=F], 
-																 phonoColorMap=phenoColor, sortSample=F, dataTrackName='Methylation Profile', main=main, 
-																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)
-		} else {
-			sortSample <- ifelse(sortBy == 'methylation', TRUE, FALSE)
-			plotInfo <- heatmapByChromosome(methyGenoSet,	gene.i,	annotationTracks=annotationTracks, phenoData=expProfile, 
-																 phonoColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, 
-																 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)
-		}
-		
+		sortSample <- ifelse(sortBy == 'methylation', TRUE, FALSE)
+		plotInfo <- heatmapByChromosome(methyGenoSet,	gene.i,	annotationTracks=annotationTracks, phenoData=expProfile, 
+															 phonoColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, 
+															 cex.main=1, ylim=ylim, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, showAxis=FALSE, selSample=selSample, ...)
+
 		## plot legendInfo
 		if (addLegend) {
 			popViewport(1)
@@ -1028,9 +1059,25 @@ plotMethylationHeatmapByGene <- function(selGene, methyGenoSet, gene2tx=NULL, tx
 
 
 
-plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'phenoData', 'data'), includeGeneBody=FALSE,  sortByTx=FALSE,
-	CpGInfo=NULL, genomicFeature=NULL, phenoColor=list(gradient=c("green", "black", "red")), title.suffix=NULL, addLegend=TRUE, 
-	genoSetLegendTitle=NULL, gradient=c("blue", "white", "red"), ncolor=16, main=NULL, newPlot=TRUE, ylim=NULL, ...) {
+plotHeatmapByGene <- function(
+		selGene, 
+		genoSet, 
+		phenoData=NULL, 
+		sortBy=c(NA, 'phenoData', 'data'), 
+		includeGeneBody=FALSE,  
+		sortByTx=FALSE,
+		CpGInfo=NULL, 
+		genomicFeature=NULL, 
+		phenoColor=list(gradient=c("green", "black", "red")), 
+		title.suffix=NULL, 
+		addLegend=TRUE, 
+		genoSetLegendTitle=NULL, 
+		gradient=c("blue", "white", "red"), 
+		ncolor=16, 
+		main=NULL, 
+		newPlot=TRUE, 
+		ylim=NULL, 
+		...) {
 		
 	sortBy <- as.character(sortBy)
 	sortBy <- match.arg(sortBy)
@@ -1238,9 +1285,23 @@ plotHeatmapByGene <- function(selGene, genoSet, phenoData=NULL, sortBy=c(NA, 'ph
 
 ## 
 ## plot the heatmap data tracks with sample (row) information
-plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL, dataTrackName=NULL, dataInfo=NULL, dataColorMap=NULL, 
-			dataInfoRange=NULL, dataBackground=gray(0.9), minHeatmapColumnWidth=2, labelWidth=0.1, gradient=c("blue", "white", "red"), 
-			ncolor=16, main='', newPlot=FALSE, sizes=NULL, ...) {
+plotTracksWithDataTrackInfo <- function(
+		trackList, 
+		labels=NULL, 
+		grange2show=NULL, 
+		dataTrackName=NULL, 
+		dataInfo=NULL, 
+		dataColorMap=NULL, 
+		dataInfoRange=NULL, 
+		dataBackground=gray(0.9), 
+		minHeatmapColumnWidth=2, 
+		labelWidth=0.1, 
+		gradient=c("blue", "white", "red"), 
+		ncolor=16, 
+		main='', 
+		newPlot=FALSE, 
+		sizes=NULL, 
+		...) {
 	
 	if (missing(trackList)) {
 		stop('Please provide "trackList"!')
@@ -1377,7 +1438,11 @@ plotTracksWithDataTrackInfo <- function(trackList, labels=NULL, grange2show=NULL
 	for (i in 1:length(dataTrackName)) {
 		dataTrackName.i <- dataTrackName[i]
 		labels.i <- labels[[dataTrackName.i]]
-
+		## Gviz changes the row order of heatmap since 1.4.0
+		if (packageVersion('Gviz') > '1.4.0') {
+			labels.i <- rev(labels.i)
+		} 
+		
 		## calculate the label positions 
 		y0 <- (plotLoc[dataTrackName.i, 'y1'] - min(plotLoc[, 'y1']) + y00) / as.numeric(convertY(unit(1, 'npc'), 'points'))
 		# 
@@ -1536,6 +1601,7 @@ checkChrName <- function(grange, addChr=TRUE) {
 	} else if (is(grange, 'character')) {
 		chrName <- grange
 	} else if (is(grange, 'GenoSet')) {
+		# chrName <- seqlevels(grange@locData)
 		chrName <- chrNames(grange)
 	} else if (is(grange, 'RangedData')) {
 		chrName <- levels(space(grange))
@@ -1562,7 +1628,12 @@ checkChrName <- function(grange, addChr=TRUE) {
 	} else if (is(grange, 'character')) {
 		grange <- chrName
 	} else if (is(grange, 'GenoSet')) {
-		names(locData(grange)) <- chrName
+		chrNames(grange) <- chrName
+		# if (is(grange@locData, 'RangedData')) {
+		# 	names(grange@locData) <- chrName
+		# } else {
+		# 	seqlevels(grange@locData) <- chrName
+		# }
 	} else if (is(grange, 'RangeTrack')) {
 		seqlevels(ranges(grange)) <- chrName
 	} else {
@@ -1584,6 +1655,7 @@ getCytoBand.ucsc <- function(hgVersion='hg19') {
 }
 
 
+
 getCpGIsland.ucsc <- function(hgVersion='hg19') {
 	
 	session <- browserSession()
@@ -1595,4 +1667,5 @@ getCpGIsland.ucsc <- function(hgVersion='hg19') {
 									name=detailedInfo$name)
 	return(ranges)
 }
+
 

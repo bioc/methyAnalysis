@@ -7,7 +7,7 @@ Smooth the methylation data
 Smooth the methylation data by a sliding window with fixed width in bp unit
 }
 \usage{
-smoothMethyData(methyData, winSize = 250, lib = "IlluminaHumanMethylation450k.db", bigMatrix=FALSE, 
+smoothMethyData(methyData, winSize = 250, lib = "FDb.InfiniumMethylation.hg19", bigMatrix=FALSE, 
 		dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...)
 }
 \arguments{

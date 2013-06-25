@@ -1,11 +1,25 @@
 
 ## get the methylation probe location information, and return as a GRanges object
-getMethyProbeLocation <- function(probes, lib="IlluminaHumanMethylation450k.db") {
+getMethyProbeLocation <- function(probes, lib="FDb.InfiniumMethylation.hg19") {
 	
 	if (!require(lib, character.only=TRUE)) stop(paste(lib, 'is not installed!'))
-	
 	if (is(probes, 'eSet')) probes <- featureNames(probes)
 	
+	if (exists(lib)) {
+		lib <- get(lib)
+		if (is(lib, 'FeatureDb')) {
+			allAnnotation <- features(lib)
+		}
+		if (any(probes %in% names(allAnnotation))) {
+			probes <- probes[probes %in% names(allAnnotation)]
+			warnings('Some probes does not exist in the annotation library!')
+		}
+		methyGrange <- allAnnotation[probes]
+		values(methyGrange) <- Data.Frame(ProbeID=probes)
+		return(methyGrange)
+	} 
+	
+	## For old annotation libraries: IlluminaHumanMethylation450k.db
 	## Check whether multiple versions of chromosome information is available,
 	## If so, only use the latest version.
 	chrPattern <- paste(sub("\\.db$", "", lib), "CHR", sep="")
@@ -30,7 +44,7 @@ getMethyProbeLocation <- function(probes, lib="IlluminaHumanMethylation450k.db")
 
 
 ## convert MethyLumiM class object to GenoSet class object
-MethyLumiM2GenoSet <- function(methyLumiM, lib="IlluminaHumanMethylation450k.db") {
+MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19") {
 	oldFeatureData <- fData(methyLumiM)
 	methyLumiM <- addAnnotationInfo(methyLumiM, lib=lib)
 	ff <- fData(methyLumiM)
@@ -48,13 +62,17 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="IlluminaHumanMethylation450k.db"
 	hgVersion <- ''
 	## retrieve the hgVersion information from the annotation library
 	if (require(lib, character.only=TRUE)) {
-		dbInfo <- do.call(paste(sub('.db$', '', lib), '_dbInfo', sep=''), list())
-		rownames(dbInfo) <- dbInfo$name
-		hgVersion <- strsplit(dbInfo['GPSOURCEURL', 'value'], '/')[[1]]
-		hgVersion <- hgVersion[length(hgVersion)]
+		dbinfo <- paste(sub('.db$', '', lib), '_dbInfo', sep='')
+		if (exists(dbinfo)) {
+			dbInfo <- do.call(dbInfo, list())
+			rownames(dbInfo) <- dbInfo$name
+			hgVersion <- strsplit(dbInfo['GPSOURCEURL', 'value'], '/')[[1]]
+			hgVersion <- hgVersion[length(hgVersion)]
+		}
 	}
 	## create RangedData for location information
-	locdata <- RangedData(ranges=IRanges(start=ff$POSITION, width=1, names=featureNames(methyLumiM)), space=ff$CHROMOSOME, universe=hgVersion)
+	# locdata <- RangedData(ranges=IRanges(start=ff$POSITION, width=1, names=featureNames(methyLumiM)), space=ff$CHROMOSOME, universe=hgVersion)
+	locdata <- GRanges(seqnames=ff$CHROMOSOME, ranges=IRanges(start=ff$POSITION, width=1, names=featureNames(methyLumiM)))
 
 	methyGenoSet <- MethyGenoSet(locData=locdata, pData=pData(methyLumiM), annotation=as.character(lib), exprs=exprs(methyLumiM), methylated=methylated(methyLumiM), 
 		unmethylated=unmethylated(methyLumiM), detection=detection(methyLumiM), universe=hgVersion)
@@ -74,7 +92,7 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="IlluminaHumanMethylation450k.db"
 
 
 ## smooth the methylation data (MethyLumiM or GenoSet objects) using slide window with fixed windowsize (in bp)
-smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylation450k.db', bigMatrix=FALSE, dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...) {
+smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation.hg19', bigMatrix=FALSE, dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...) {
 
 	if (!is(methyData, 'GenoSet') && !is(methyData, 'MethyLumiM')) {
 		stop("methyData should be a GenoSet or MethyLumiM object!")
@@ -83,7 +101,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='IlluminaHumanMethylatio
 	if (is(methyData, 'MethyLumiM')) {
 		chrInfo <- getChrInfo(methyData, lib=lib)
 	} else {
-		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=space(locData(methyData)), POSITION=start(methyData), END=end(methyData))
+		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=genoset::chr(methyGenoSet), POSITION=start(methyData), END=end(methyData))
 	}
 	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
 	
@@ -164,7 +182,8 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	## get the annotation version
 	hgVersion <- universe(methyGenoSet)
 	
-	chr <- space(locData(methyGenoSet))
+	# chr <- space(locData(methyGenoSet))
+	chr <- genoset::chr(methyGenoSet)
 	start <- start(methyGenoSet)
 	## Sort the rows of ratios.obj
 	methyGenoSet <- methyGenoSet[order(chr, start),]
@@ -194,7 +213,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	methyData <- signif(methyData, 3)
 	
 	if (file.format == 'gct') {
-		chrInfo <- data.frame(PROBEID=featureNames(methyGenoSet), CHROMOSOME=space(locData(methyGenoSet)), START=start(methyGenoSet), END=end(methyGenoSet),	stringsAsFactors=FALSE)
+		chrInfo <- data.frame(PROBEID=featureNames(methyGenoSet), CHROMOSOME=genoset::chr(methyGenoSet), START=start(methyGenoSet), END=end(methyGenoSet),	stringsAsFactors=FALSE)
 
 		# remove those probes lack of position information
 		rmInd <- which(is.na(chrInfo$START))
@@ -224,7 +243,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 		seq.lengths <- chr.info[,"stop"] - chr.info[,"offset"]
 		for (i in 1:ncol(methyData)) {		
 			score.i <- methyData[,i]
-			cn.data.i <- GRanges(seqnames=space(locData(methyGenoSet)), ranges=IRanges(start=start(methyGenoSet),end=end(methyGenoSet)), strand='*', score=score.i)
+			cn.data.i <- GRanges(seqnames=genoset::chr(methyGenoSet), ranges=IRanges(start=start(methyGenoSet),end=end(methyGenoSet)), strand='*', score=score.i)
 			genome(cn.data.i) <- universe(methyGenoSet)
 			cn.data.i <- cn.data.i[!is.na(score.i), ]
 			if (savePrefix == '' || is.null(savePrefix)) {
@@ -868,13 +887,13 @@ export.DMRInfo	<- function(DMRInfo.ann, methyData=NULL, savePrefix='') {
 	ord <- order(sigDMRdataInfo$seqnames, sigDMRdataInfo$start, sigDMRdataInfo$end, decreasing=FALSE)
 	sigDMRdataInfo <- sigDMRdataInfo[ord,]
 	
-	if (all(c('startWinIndex', 'endWinIndex') %in% colnames(sigDMRdataInfo))) {
-		numProbe <- sigDMRdataInfo[,'endWinIndex'] - sigDMRdataInfo[,'startWinIndex'] + 1
-		ind.start <- which(colnames(sigDMRdataInfo) == 'startWinIndex')
-		sigDMRdataInfo[,ind.start] <- numProbe
-		colnames(sigDMRdataInfo)[ind.start] <- 'numberOfProbe'
-		sigDMRdataInfo <- sigDMRdataInfo[,-which(colnames(sigDMRdataInfo) == 'endWinIndex')]
-	}
+	# if (all(c('startWinIndex', 'endWinIndex') %in% colnames(sigDMRdataInfo))) {
+	# 	numProbe <- sigDMRdataInfo[,'endWinIndex'] - sigDMRdataInfo[,'startWinIndex'] + 1
+	# 	ind.start <- which(colnames(sigDMRdataInfo) == 'startWinIndex')
+	# 	sigDMRdataInfo[,ind.start] <- numProbe
+	# 	colnames(sigDMRdataInfo)[ind.start] <- 'numberOfProbe_SlidingWindow'
+	# 	sigDMRdataInfo <- sigDMRdataInfo[,-which(colnames(sigDMRdataInfo) == 'endWinIndex')]
+	# }
 	sigDMRdataInfo <- data.frame(CHROMOSOME=sigDMRdataInfo$seqnames, POSITION=sigDMRdataInfo$start, sigDMRdataInfo[,-c(1:5)])
 	## remove columns
 	rmCol <- c('isSignificant', 'p.value.adj', 'startLocation', 'endLocation')
@@ -891,13 +910,13 @@ export.DMRInfo	<- function(DMRInfo.ann, methyData=NULL, savePrefix='') {
 	sigDMRInfo <- as.data.frame(DMRInfo.ann$sigDMRInfo)
 	ord <- order(sigDMRInfo$seqnames, sigDMRInfo$start, sigDMRInfo$end, decreasing=FALSE)
 	sigDMRInfo <- sigDMRInfo[ord,]
-	if (all(c('startInd', 'endInd') %in% colnames(sigDMRInfo))) {
-		numProbe <- sigDMRInfo[,'endInd'] - sigDMRInfo[,'startInd'] + 1
-		ind.start <- which(colnames(sigDMRInfo) == 'startInd')
-		sigDMRInfo[,ind.start] <- numProbe
-		colnames(sigDMRInfo)[ind.start] <- 'numberOfProbe'
-		sigDMRInfo <- sigDMRInfo[,-which(colnames(sigDMRInfo) == 'endInd')]
-	}
+	# if (all(c('startInd', 'endInd') %in% colnames(sigDMRInfo))) {
+	# 	numProbe <- sigDMRInfo[,'endInd'] - sigDMRInfo[,'startInd'] + 1
+	# 	ind.start <- which(colnames(sigDMRInfo) == 'startInd')
+	# 	sigDMRInfo[,ind.start] <- numProbe
+	# 	colnames(sigDMRInfo)[ind.start] <- 'numberOfProbe_SlidingWindow'
+	# 	sigDMRInfo <- sigDMRInfo[,-which(colnames(sigDMRInfo) == 'endInd')]
+	# }
 	sigDMRInfo <- data.frame(CHROMOSOME=sigDMRInfo$seqnames, sigDMRInfo[,-1])
 	## remove columns
 	rmCol <- c('width', 'strand', 'isSignificant', 'p.value.adj')

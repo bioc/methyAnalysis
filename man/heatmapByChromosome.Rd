@@ -11,7 +11,7 @@ heatmapByChromosome(genoSet, gene, annotationTracks = NULL, otherTrackList = NUL
 	phonoColorMap = NULL, extendRange = c(2000, 2000), includeGeneBody = TRUE, showFullModel = FALSE, sortSample = TRUE,  
 	cytobandInfo = NULL, CpGInfo = NULL, genomeAxis = TRUE, dataTrackName = "Methylation Profile", lib = "org.Hs.eg.db", 
 	genome = "hg19", genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", gradient = c("blue", "white", "red"), 
-	ncolor = 16, ylim = NULL, th = 0.99, main = "", ...)
+	ncolor = 16, ylim = NULL, th = 0.99, main = "", selSample = NULL, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -80,6 +80,9 @@ the quantile threshold used to remove outlier, which affects the plot color rang
 }
   \item{main}{
 the title of the plot
+}
+  \item{selSample}{
+subset of samples for plotting. It is designed for BigMatrix, which have to extract the data at the last moment.
 }
   \item{\dots}{
 other parameters used by \code{\link{plotTracksWithDataTrackInfo}}

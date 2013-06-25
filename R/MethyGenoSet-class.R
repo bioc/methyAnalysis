@@ -23,6 +23,9 @@ setValidity("MethyGenoSet", function(object)
 
 ## Create MethyGenoSet class
 MethyGenoSet <- function(locData, exprs, methylated, unmethylated, detection=NULL, pData=NULL, annotation="", universe=NULL, ...) {
+	## convert "RangedData" as "GRanges"
+	if (is(locData, 'RangedData')) locData <- as(locData, 'GRanges')
+	
 	if (is.null(detection)) {
 	object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, universe=universe, exprs=exprs, methylated=methylated, unmethylated=unmethylated, ...)
 	} else {
@@ -31,7 +34,7 @@ MethyGenoSet <- function(locData, exprs, methylated, unmethylated, detection=NUL
 	return(object)
 }
 
-
+setGeneric("asBigMatrix", function(object, ...) standardGeneric("asBigMatrix"))
 
 setMethod("exprs", signature(object="MethyGenoSet"), function(object) {
 	if ('exprs' %in% assayDataElementNames(object)) {
