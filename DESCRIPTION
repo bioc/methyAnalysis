@@ -7,7 +7,7 @@ Depends: R (>= 2.10), grid, IRanges, Biobase (>= 2.5.5), org.Hs.eg.db
 Imports: lumi, methylumi, Gviz, genoset, GenomicRanges, IRanges,
         rtracklayer, GenomicFeatures, annotate, Biobase (>= 2.5.5),
         AnnotationDbi, genefilter, biomaRt, methods
-Suggests: IlluminaHumanMethylation450k.db,
+Suggests: FDb.InfiniumMethylation.hg19,
         TxDb.Hsapiens.UCSC.hg19.knownGene
 Author: Pan Du, Richard Bourgon
 Maintainer: Pan Du <dupan.mail@gmail.com>
