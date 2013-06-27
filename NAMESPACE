@@ -31,7 +31,7 @@ importMethodsFrom(IRanges, space, start, end, width, universe, values, "values<-
 	unlist, as.vector, as.list, as.matrix)
 importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, 
 	"seqnames<-", "seqlevels<-", match, overlapsAny, as.data.frame, distanceToNearest)
-importMethodsFrom(genoset, locData, "locData<-", chrNames, chrInfo)
+importMethodsFrom(genoset, locData, "locData<-", chrNames, "chrNames<-", chrInfo)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
 importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts, loadFeatures)
@@ -45,7 +45,7 @@ importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-
 
 
 exportClasses(MethyGenoSet)
-exportMethods(exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-",
+exportMethods(asBigMatrix, exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-",
 	"unmethylated<-", "detection<-", getHistory, combine, "[", coerce, locData, 
 	"locData<-", chrNames)
 

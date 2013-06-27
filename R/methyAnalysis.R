@@ -101,7 +101,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	if (is(methyData, 'MethyLumiM')) {
 		chrInfo <- getChrInfo(methyData, lib=lib)
 	} else {
-		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=genoset::chr(methyGenoSet), POSITION=start(methyData), END=end(methyData))
+		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=genoset::chr(methyData), POSITION=start(methyData), END=end(methyData))
 	}
 	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
 	

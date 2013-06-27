@@ -1,6 +1,7 @@
 \name{asBigMatrix-methods}
 \docType{methods}
 \alias{asBigMatrix-methods}
+\alias{asBigMatrix}
 \alias{asBigMatrix,GenoSet-method}
 \title{convert the data matrix in the assayData of a GenoSet as BigMatrix}
 \description{
