@@ -39,7 +39,7 @@ importFrom(IRanges, IRanges, RangedData)
 importFrom(genoset, GenoSet)
 importFrom(GenomicRanges, GRanges)
 importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, 
-	BiomartGeneRegionTrack, UcscTrack, DataTrack, stacks, plotTracks, coords)
+	BiomartGeneRegionTrack, UcscTrack, DataTrack, stacks, plotTracks, coords, tags)
 importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-", 
 	displayPars, "displayPars<-", getPar, transcript)
 

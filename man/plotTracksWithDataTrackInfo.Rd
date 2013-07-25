@@ -87,7 +87,7 @@ Pan Du
 		## build annotation tracks
 		annotationTracks <- buildAnnotationTracks('1826', includeGeneBody = FALSE, genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", cytobandInfo=NA, CpGInfo=NA)
 		trackList <- c(annotationTracks, list(dTrack))
-		plotTracksWithDataTrackInfo(trackList, labels=sampleNames(exampleMethyGenoSet), grange2show = attr(annotationTracks, 'grange2show'))
+		plotTracksWithDataTrackInfo(trackList, labels=colnames(exampleMethyGenoSet), grange2show = attr(annotationTracks, 'grange2show'))
 	}
 
 }

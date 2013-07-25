@@ -15,7 +15,7 @@ getMethyProbeLocation <- function(probes, lib="FDb.InfiniumMethylation.hg19") {
 			warnings('Some probes does not exist in the annotation library!')
 		}
 		methyGrange <- allAnnotation[probes]
-		values(methyGrange) <- Data.Frame(ProbeID=probes)
+		values(methyGrange) <- DataFrame(ProbeID=probes)
 		return(methyGrange)
 	} 
 	
@@ -181,6 +181,10 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	file.format <- match.arg(file.format)
 	## get the annotation version
 	hgVersion <- universe(methyGenoSet)
+	if (is.null(hgVersion)) {
+		warnings('hgVersion information is not available in methyGenoSet! hg19 will be used.')
+		hgVersion <- 'hg19'
+	}
 	
 	# chr <- space(locData(methyGenoSet))
 	chr <- genoset::chr(methyGenoSet)

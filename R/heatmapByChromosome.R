@@ -275,16 +275,24 @@ transcriptDb2GeneRegionTrackByGene <- function(genomicFeature, selGene, extendRa
 	return(genomicFeature)
 }
 
-
-## .estimateStackLocation(annotationTracks[[3]], from=ranges[1], to=ranges[2])
-.estimateStackLocation <- function(track, from, to, chromosome=NULL, ...) {
-	track <- Gviz:::consolidateTrack(track, chromosome=chromosome, from=from, to=to, ...)
-
-	## Now we can subset all the objects in the list to the current boundaries and compute the initial stacking
-	track <- Gviz:::subset(track, from=from, to=to)
-	track <- Gviz:::setStacks(track, from=from, to=to)
-	return(track)
+## Estimate the order of transcript based on the GeneRegionTrack object within the plot window
+.estimateTxOrder <- function(geneRegionTrack, from, to, chromosome) {
+	tmp.png <- tempfile(,fileext='.png')
+	png(tmp.png)
+	tmp <- plotTracks(geneRegionTrack, from=from, to=to, chromosome=chromosome)
+	dev.off()
+	unlink(tmp.png)
+	## get the coordinate and tags.
+	plotCoord <- as.data.frame(coords(tmp[[1]]))
+	plotTags <- tags(tmp[[1]])
+	
+	## only get those in the plot window
+	selInd <- plotCoord$x2 > 0
+	selTx <- plotTags$transcript[selInd]
+	selTx <- selTx[order(plotCoord$y2[selInd], plotCoord$x2[selInd], decreasing=FALSE)]
+	return(unique(selTx))
 }
+
 
 ## build annotation tracks 
 ## return value: a list of Tracks (Gviz) with attribute "grange2show"
@@ -488,16 +496,18 @@ heatmapByChromosome <- function(
 		genoSet <- checkChrName(genoSet, addChr=TRUE)
 		grange.data <- suppressWarnings(as(locData(genoSet), 'GRanges'))
 		if (is.null(selSample)) {
-			selSample <- 1:ncol(genoSet)
+			selSample.i <- colnames(genoSet)
 		} else {
-			if (is.numeric(selSample)) selSample <- sampleNames(genoSet)[selSample]
-			if (!is.null(phenoData)) phenoData <- phenoData[selSample,,drop=FALSE]
-			if (length(sortSample) == ncol(genoSet)) sortSample <- sortSample[selSample]
+			selSample.i <- selSample
+			if (is.numeric(selSample.i)) selSample.i <- colnames(genoSet)[selSample.i]
+			if (!is.null(phenoData)) phenoData <- phenoData[selSample.i,,drop=FALSE]
+			if (length(sortSample) == ncol(genoSet)) sortSample <- sortSample[selSample.i]
 		} 
+
 		if (packageVersion('GenomicRanges') < '1.11.0') {
-			selMethyData <- genoSet[!is.na(match(grange.data, grange2show)),selSample]
+			selMethyData <- genoSet[!is.na(match(grange.data, grange2show)),selSample.i]
 		} else {
-			selMethyData <- genoSet[overlapsAny(grange.data, grange2show),selSample]
+			selMethyData <- genoSet[overlapsAny(grange.data, grange2show),selSample.i]
 		}
 		
 		if (nrow(selMethyData) == 0) {
@@ -633,12 +643,11 @@ heatmapByChromosome <- function(
 ##	 selGene: a vector of EntrezIDs or a list of gene2tx
 ##	 methyGenoSet: a GenoSet object for methylation data
 ##	 gene2tx: a gene to transcript mapping list, used for retrieving expression.tx data
-##	 tx2exon: a transcript to exon mapping list, used for retrieving expression.exon data
 ##	 expression.tx: an ExpressionSet or data matrix for transcript expression
-##	 expression.exon: an ExpressionSet or data matrix for exon expression
+##	 expression.other: an ExpressionSet or data matrix for other expression, like exon1 or txSpecific
 ##	 phenoData: an ExpressionSet or data.frame for phenotype informaiton
 ##	 sortBy: sort the samples based on expression, methylation or NA (not sort)
-##	 renameExon: whether to rename exons as "exon1_transcript"
+##	 labelPrefix.expression.other: label prefix added to the label of expression.other, e.g., "exon1_transcript"
 ##	 showAllTx: whether to show all transcript in gene2tx or just those provided in selGene
 ##	 includeGeneBody: if FALSE, then only shows the promoter region
 ##	 CpGInfo: a bed file or GRanges for CpG island information
@@ -648,12 +657,12 @@ plotMethylationHeatmapByGene <- function(
 		selGene, 
 		methyGenoSet, 
 		gene2tx=NULL, 
-		tx2exon=NULL, 
 		expression.tx=NULL, 
-		expression.exon=NULL,  
+		expression.other=NULL,  
 		phenoData=NULL, 
 		sortBy=c('expression', 'methylation', NA), 
-		renameExon=FALSE, 
+		scaledExpression=FALSE,
+		labelPrefix.expression.other='', 
 		showAllTx=TRUE, 
 		useBetaValue=TRUE, 
 		includeGeneBody=FALSE, 
@@ -703,44 +712,47 @@ plotMethylationHeatmapByGene <- function(
 		}
 	}
 
+	## subset of the data, designed for BigMatrix
+	allSample <- colnames(methyGenoSet)
+	if (is.null(selSample)) {
+		selSample <- allSample
+	} else if (is.logical(selSample) || is.numeric(selSample)){
+		selSample <- allSample[selSample]
+	} else if (is.character(selSample)) {
+		if (any(!(selSample %in% allSample))) stop('selSample does not match the colnames of methyGenoSet !')
+		# ind <- 1:ncol(methyGenoSet)
+		# names(ind) <- colnames(methyGenoSet)
+		# selSample <- ind[selSample]
+	}
+	
 	if (!is.null(expression.tx)) {
 		if (is(expression.tx, 'ExpressionSet')) {
 			expMatrix <- exprs(expression.tx)
 		} else {
 			expMatrix <- expression.tx
 		}
-		if (max(expMatrix) > 100) {
-			minV <- min(expMatrix[expMatrix > 0])
-			expMatrix <- log2(expMatrix + minV/2)
-		}
 		rm(expression.tx)
 
 		if (ncol(expMatrix) != ncol(methyGenoSet)) {
 			stop('Dimensions of expression.tx do not match methyGenoSet!')
 		}
-		
 	} else {
 		expMatrix <- NULL
 	}
 	
-	if (!is.null(expression.exon)) {
-		if (is(expression.exon, 'ExpressionSet')) {
-			expMatrix.exon <- exprs(expression.exon)
-		} else {
-			expMatrix.exon <- expression.exon
+	expMatrix.other <- NULL
+	if (!is.null(expression.other)) {
+		if (!is.list(expression.other)) expression.other <- list(expression.other)
+		for (expression.other.i in expression.other) {
+			if (is(expression.other.i, 'ExpressionSet')) {
+				expMatrix.other.i <- exprs(expression.other.i)
+			} else {
+				expMatrix.other.i <- expression.other.i
+			}
+			expMatrix.other <- c(expMatrix.other, list(expMatrix.other.i))
+			rm(expression.other.i); gc()
 		}
-		if (max(expMatrix.exon) > 100) {
-			minV <- min(expMatrix.exon[expMatrix.exon > 0])
-			expMatrix.exon <- log2(expMatrix.exon + minV/2)
-		}
-		rm(expression.exon); gc()
-	
-		if (ncol(expMatrix.exon) != ncol(expMatrix)) {
-			stop('Dimensions of exon data do not match transcript data!')
-		}
-	} else {
-		expMatrix.exon <- NULL
-	}
+	} 
 	
 	if (is.list(selGene)) {
 		sigGene2tx <- selGene
@@ -789,20 +801,10 @@ plotMethylationHeatmapByGene <- function(
 			names(phenoColor) <- allPhenoName
 		}		
 	}
-	## subset of the data, designed for BigMatrix
-	if (is.null(selSample)) {
-		selSample <- 1:ncol(methyGenoSet)
-	} else if (is.logical(selSample)){
-		selSample <- which(selSample)
-	} else if (is.character(selSample)) {
-		ind <- 1:ncol(methyGenoSet)
-		names(ind) <- sampleNames(methyGenoSet)
-		selSample <- ind[selSample]
-	}
 
 	plotResult <- lapply(1:length(sigGene2tx), function(i) {
 	
-		gene.i <- selGene[i] # '728591' # '63951'
+		gene.i <- selGene[i] 
 		symbol <- unlist(lookUp(gene.i, 'org.Hs.eg.db', 'SYMBOL'))
 		if (is.na(symbol) || (symbol == 'NA')) return(NULL)
 		
@@ -828,61 +830,78 @@ plotMethylationHeatmapByGene <- function(
 		
 		grange2show <- checkChrName(grange2show, addChr=TRUE)
 		chromosome <- as.character(seqnames(grange2show))[1]
-		geneRegionTrack <- .estimateStackLocation(geneRegionTrack, from=start(grange2show)[1], to=end(grange2show)[1], chromosome=chromosome)
-		annTx <- split(values(geneRegionTrack)$transcript, stacks(geneRegionTrack))
-		annTx <- unique(unlist(annTx))
-
+		annTx <- .estimateTxOrder(geneRegionTrack, from=start(grange2show)[1], to=end(grange2show)[1], chromosome=chromosome)
+		
 		annTx.ind <- 1:length(annTx)
 		names(annTx.ind) <- annTx
 		orderedTx <- selTx[selTx %in% annTx]
+		otherTx <- selTx[!(selTx %in% annTx)]
 		if (length(orderedTx) > 0) {
 			orderedTx <- orderedTx[order(annTx.ind[orderedTx], decreasing=FALSE)]
 			orderedTx <- c(orderedTx, selTx[!(selTx %in% annTx)])
 			selTx <- orderedTx
 		}
-		if (!any(selTx %in% rownames(expMatrix))) {
-			if (gene.i %in% rownames(expMatrix)) {
-				expProfile <- t(expMatrix[gene.i,,drop=FALSE])
+		if (length(otherTx) > 0) selTx <- unique(c(selTx, otherTx))
+		
+		expProfile <- expProfile.range <- NULL
+		if (!is.null(expMatrix)) {
+			if (!any(selTx %in% rownames(expMatrix))) {
+				if (gene.i %in% rownames(expMatrix)) {
+					expProfile <- t(expMatrix[gene.i,selSample,drop=FALSE])
+				} else if (nrow(expMatrix) <= 5) {
+					expProfile <- t(expMatrix[, selSample, drop=FALSE])
+				} 
 			} else {
-				expProfile <- NULL
+				selTx.i <- selTx[selTx %in% rownames(expMatrix)]
+				expProfile <- t(expMatrix[selTx.i,selSample,drop=FALSE])
 			}
-		} else {
-			selTx <- selTx[selTx %in% rownames(expMatrix)]
-			expProfile <- t(expMatrix[selTx,,drop=FALSE])
-		}
-		if (!is.null(expProfile)) {
-			expProfile.range <- range(expProfile, na.rm=TRUE)
-		} else {
-			expProfile.range <- NULL
+			if (scaledExpression) {
+				expProfile.range <- c(0, 1)
+			} else {
+				if (!is.null(expProfile)) {
+					expProfile.range <- range(expProfile, na.rm=TRUE)
+				} 
+			}
 		}
 		
 		## includeExon1
 		rk <- 1:ncol(methyGenoSet)
-		if (!is.null(expMatrix.exon)) {
-			if (!is.null(tx2exon)) {
-				selExon1 <- tx2exon[selTx]
-				selExon1 <- selExon1[selExon1 %in% rownames(expMatrix.exon)]
-				expProfile.exon1 <- t(expMatrix.exon[selExon1,,drop=FALSE])
-			} else {
-				expProfile.exon1 <- t(expMatrix.exon[selTx,,drop=FALSE])
+		if (!is.null(expMatrix.other)) {
+			sigOther <- NULL
+			for (i in 1:length(expMatrix.other)) {
+				expMatrix.other.i <- expMatrix.other[[i]]
+				selTx.i <- selTx[selTx %in% rownames(expMatrix.other.i)]
+				expProfile.other.i <- t(expMatrix.other.i[selTx.i,selSample,drop=FALSE])
+				if (!is.null(labelPrefix.expression.other) || (labelPrefix.expression.other != '')) {
+					if (length(labelPrefix.expression.other) != length(expMatrix.other)) 
+						stop('The length of labelPrefix.expression.other should be the same as the length of expression.other!')
+						
+					colnames(expProfile.other.i) <- paste(labelPrefix.expression.other[i], selTx.i, sep='_')
+					sigOther.i <- paste(labelPrefix.expression.other[i], sigTx, sep='_')
+					sigOther <- c(sigOther, sigOther.i)
+				} 
+				expProfile <- cbind(expProfile, expProfile.other.i)
 			}
-			if (renameExon) {
-				# colnames(expProfile.exon1) <- paste(selTx, 'exon1', sep='_')
-				# sigExon1 <- paste(sigTx, 'exon1', sep='_')
-				colnames(expProfile.exon1) <- paste('exon1', selTx, sep='_')
-				sigExon1 <- paste('exon1', sigTx, sep='_')
-			} else {
-				sigExon1 <- tx2exon[sigTx]
-			}
-			expProfile <- cbind(expProfile, expProfile.exon1)
 
-			selCol <- c(sigExon1, sigTx)
-			selCol <- selCol[selCol %in% colnames(expProfile)]
 			## sort only based on significant exon1 and transcript
+			selCol <- sigTx
+			# selCol <- c(sigOther, sigTx)
+			selCol <- selCol[selCol %in% colnames(expProfile)]
+			if (length(selCol) == 0) selCol <- 1
 			rk <- rank(rowMeans(expProfile[, selCol, drop=FALSE], na.rm=TRUE))
+
+			## scale the profile by dividing the maximum values
+			if (scaledExpression) expProfile <- t(t(expProfile) / (0.01 + apply(expProfile, 2, max)))
+
 		} else if (!is.null(expProfile)) {
 			## sort only based on significant Tx
-			rk <- rank(rowMeans(expProfile[,sigTx,drop=FALSE], na.rm=TRUE))
+			selCol <- sigTx
+			selCol <- selCol[selCol %in% colnames(expProfile)]
+			if (length(selCol) == 0) selCol <- 1
+			rk <- rank(rowMeans(expProfile[,selCol,drop=FALSE], na.rm=TRUE))
+
+			## scale the profile if required
+			if (scaledExpression) expProfile <- t(t(expProfile) / (0.01 + apply(expProfile, 2, max)))
 		}
 		selSample <- selSample[order(rk[selSample], decreasing=FALSE)]
 
@@ -1000,6 +1019,8 @@ plotMethylationHeatmapByGene <- function(
 				} else {
 					expressionLegendTitle <- strsplit(expressionLegendTitle, '\n')[[1]]
 				}
+				if (scaledExpression) expressionLegendTitle[1] <- paste('Scaled', expressionLegendTitle[1])
+				
 				grid.text(expressionLegendTitle[1], x=0.5, y=max(ytickPos) + 0.025 + as.numeric(convertY(unit(fontsize, 'points'), 'npc')), just=c('center', 'bottom'), 
 							default.units = "npc", gp=gpar(fontsize=fontsize, fontface='bold'))
 				if (length(expressionLegendTitle) > 1)			
@@ -1152,16 +1173,14 @@ plotHeatmapByGene <- function(
 	grange2show <- checkChrName(grange2show, addChr=TRUE)
 	chromosome <- as.character(seqnames(grange2show)[1])
 	if (sortByTx) {
-		geneRegionTrack <- .estimateStackLocation(geneRegionTrack, from=start(grange2show)[1], to=end(grange2show)[1], chromosome=chromosome)
-		annTx <- split(values(geneRegionTrack)$transcript, stacks(geneRegionTrack))
-		annTx <- rev(unique(as.character(unlist(annTx))))
+		annTx <- .estimateTxOrder(geneRegionTrack, from=start(grange2show)[1], to=end(grange2show)[1], chromosome=chromosome)
 		
 		genoSetList <- lapply(genoSetList, function(x) {
-			x.name <- sampleNames(x)
+			x.name <- colnames(x)
 			ind <- 1:length(x.name)
 			names(ind) <- x.name
 			x.name.ord <- c(annTx[annTx %in% x.name], x.name[!(x.name %in% annTx)])
-			x <- x[,ind[x.name.ord]]
+			x <- x[,ind[x.name.ord], drop=FALSE]
 		})
 	}
 
@@ -1193,7 +1212,6 @@ plotHeatmapByGene <- function(
 		pushViewport(viewport(layout=grid.layout(1, 3, widths=layout.width)))
 		pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
 	} 
-	
 	sortSample <- ifelse(sortBy == 'methylation', TRUE, FALSE)
 	plotInfo <- heatmapByChromosome(genoSetList, selGene, annotationTracks=annotationTracks, phenoData=phenoData, 
 				 phonoColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, ylim=ylim,
@@ -1628,7 +1646,7 @@ checkChrName <- function(grange, addChr=TRUE) {
 	} else if (is(grange, 'character')) {
 		grange <- chrName
 	} else if (is(grange, 'GenoSet')) {
-		chrNames(grange) <- chrName
+		genoset::chrNames(grange) <- chrName
 		# if (is(grange@locData, 'RangedData')) {
 		# 	names(grange@locData) <- chrName
 		# } else {

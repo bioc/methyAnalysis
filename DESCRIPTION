@@ -1,13 +1,13 @@
 Package: methyAnalysis
 Type: Package
 Title: DNA methylation data analysis and visualization
-Version: 1.3.6
-Date: 2013-06-27
-Depends: R (>= 2.10), grid, IRanges, Biobase (>= 2.5.5), org.Hs.eg.db
+Version: 1.3.7
+Date: 2013-07-23
+Depends: R (>= 2.10), grid, IRanges, GenomicRanges, Biobase (>= 2.5.5), org.Hs.eg.db
 Imports: lumi, methylumi, Gviz, genoset, GenomicRanges, IRanges,
         rtracklayer, GenomicFeatures, annotate, Biobase (>= 2.5.5),
         AnnotationDbi, genefilter, biomaRt, methods
-Suggests: FDb.InfiniumMethylation.hg19,
+Suggests: FDb.InfiniumMethylation.hg19, 
         TxDb.Hsapiens.UCSC.hg19.knownGene
 Author: Pan Du, Richard Bourgon
 Maintainer: Pan Du <dupan.mail@gmail.com>

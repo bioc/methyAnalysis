@@ -201,7 +201,7 @@ setMethod("[", "MethyGenoSet", function(x, i, j, ..., drop = FALSE)	{
 setAs("MethyGenoSet", "MethyLumiM", function(from) {
 	oldFeatureData <- fData(from)
 	locdata <- locData(from)
-	chrInfo <- data.frame(CHROMOSOME=as.character(space(locdata)), POSITION=start(locdata))
+	chrInfo <- data.frame(CHROMOSOME=as.character(genoset::chr(locdata)), POSITION=start(locdata))
 
 	methyLumiM <- new('MethyLumiM', phenoData=phenoData(from), annotation=annotation(from), exprs=exprs(from), 
 			methylated=methylated(from), unmethylated=unmethylated(from))
@@ -347,9 +347,9 @@ setMethod('asBigMatrix',
 			if (length(colInd) < nrow(pdata)) pdata <- pdata[colInd,]
 		}
 		if (class(object) == 'MethyGenoSet') {
-			object.new <- MethyGenoSet(locData=locData(object), assayData=assayData(object), pData=pdata)
+			object.new <- MethyGenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
 		} else {
-			object.new <- GenoSet(locData=locData(object), assayData=assayData(object), pData=pdata)
+			object.new <- GenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
 		}	
 		fData(object.new) <- fData(object)[rowInd,,drop=FALSE]
 		object <- object.new

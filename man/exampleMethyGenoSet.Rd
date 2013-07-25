@@ -15,7 +15,7 @@ Example MethyGenoSet dataset, which includes eight randomly picked cancer cell l
 \examples{
 data(exampleMethyGenoSet)
 class(exampleMethyGenoSet)
-sampleNames(exampleMethyGenoSet)
+colnames(exampleMethyGenoSet)
 exampleMethyGenoSet
 }
 \keyword{datasets}
