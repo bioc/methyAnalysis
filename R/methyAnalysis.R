@@ -105,7 +105,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	}
 	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
 	
-	ratioData <- assayData(methyData)$exprs
+	ratioData.old <- ratioData <- assayData(methyData)$exprs
 	if (class(ratioData) == 'BigMatrix') {
 		bigMatrix <- TRUE
 	}
@@ -116,11 +116,15 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	if (length(rmInd) > 0)	index <- index[-rmInd]
 	
 	# Sort the ratioData by chromosome and location
-	ord <- order(chrInfo$CHROMOSOME[index], chrInfo$POSITION[index], decreasing=FALSE)
-	index <- index[ord]
+	isOrdered <- with(chrInfo, sapply(split(POSITION, CHROMOSOME), function(x) all(x == sort(x, decreasing=FALSE))))
+	if (!all(isOrdered)) {
+		ord <- order(chrInfo$CHROMOSOME[index], chrInfo$POSITION[index], decreasing=FALSE)
+		index <- index[ord]
+	}
 	
 	if (bigMatrix) {
-		methyData <- asBigMatrix(methyData, rowInd=index, savePrefix=savePrefix.bigMatrix, saveDir=dir.bigMatrix)
+		if (!is(ratioData, 'BigMatrix') || !is.null(savePrefix.bigMatrix) || !all(index == 1:length(index)))
+			methyData <- asBigMatrix(methyData, rowInd=index, savePrefix=savePrefix.bigMatrix, saveDir=dir.bigMatrix)
 	} else {
 		methyData <- methyData[index,]
 	}
@@ -149,7 +153,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 			return(smooth.ij)
 		})
 		smooth.ratio.i <- t(smooth.ratio.i) 
-		## replace the data with smoothed ones
+		## replace the data with smoothed ones	
 		ratioData[index.i,] <- smooth.ratio.i
 		
 		windowIndex[[i]] <- windowIndex.i
@@ -164,6 +168,9 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	colnames(windowRange) <- c('startLocation', 'endLocation')
 
 	exprs(methyData) <- ratioData
+	if (is(ratioData, 'BigMatrix'))
+		assayData(methyData) <- attachAssayDataElements(assayData(methyData))
+		
 	# methyData <- suppressMessages(methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)])
 	# exprs(methyData) <- smooth.ratioData[featureNames(methyData),]
 
@@ -181,7 +188,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	file.format <- match.arg(file.format)
 	## get the annotation version
 	hgVersion <- universe(methyGenoSet)
-	if (is.null(hgVersion)) {
+	if (is.null(hgVersion) || hgVersion == '') {
 		warnings('hgVersion information is not available in methyGenoSet! hg19 will be used.')
 		hgVersion <- 'hg19'
 	}

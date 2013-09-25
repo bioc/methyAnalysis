@@ -136,7 +136,7 @@ createTranscriptTrack <- function(
 			transTrack <- genomicFeature[transcript(genomicFeature) %in% transcript(transTrack)]
 		}
 	}
-		
+
 	if (is.null(grange2show)) {
 		## set the grange2show based on Entrez gene database, e.g., 'org.Hs.eg.db'
 		gene <- sub('^GeneID:', '', gene)
@@ -195,6 +195,7 @@ createTranscriptTrack <- function(
 			chromosome=chromosome, genome=genome, rstarts="exonStarts", rends="exonEnds", gene="name",
 			symbol="name", transcript="name", strand="strand", showId=TRUE, name="UCSC Genes")
 	}	
+
 	if (!is.null(transTrack)) {
 		names(transTrack) <- "Gene Model"
 		displayPars(transTrack) <- list(background.title=background.title, fill=fill, ...)
@@ -369,6 +370,7 @@ buildAnnotationTracks <- function(
 	## Create Transcript annotation track
 	transTrack	<- createTranscriptTrack(gene, genomicFeature=genomicFeature, lib=lib, 
 					extendRange=extendRange, includeGeneBody=includeGeneBody, genome=genome, ...)
+					
 	if (!is.null(transTrack)) {
 		allTracks <- c(allTracks, list(transTrack))
 		## update grange2show
@@ -884,26 +886,31 @@ plotMethylationHeatmapByGene <- function(
 			}
 
 			## sort only based on significant exon1 and transcript
-			selCol <- sigTx
-			# selCol <- c(sigOther, sigTx)
-			selCol <- selCol[selCol %in% colnames(expProfile)]
-			if (length(selCol) == 0) selCol <- 1
-			rk <- rank(rowMeans(expProfile[, selCol, drop=FALSE], na.rm=TRUE))
+			if (sortBy == 'expression') {
+				selCol <- sigTx
+				# selCol <- c(sigOther, sigTx)
+				selCol <- selCol[selCol %in% colnames(expProfile)]
+				if (length(selCol) == 0) selCol <- 1
+				rk <- rank(rowMeans(expProfile[, selCol, drop=FALSE], na.rm=TRUE))
+			}
 
 			## scale the profile by dividing the maximum values
 			if (scaledExpression) expProfile <- t(t(expProfile) / (0.01 + apply(expProfile, 2, max)))
 
 		} else if (!is.null(expProfile)) {
-			## sort only based on significant Tx
-			selCol <- sigTx
-			selCol <- selCol[selCol %in% colnames(expProfile)]
-			if (length(selCol) == 0) selCol <- 1
-			rk <- rank(rowMeans(expProfile[,selCol,drop=FALSE], na.rm=TRUE))
+			if (sortBy == 'expression') {
+				## sort only based on significant Tx
+				selCol <- sigTx
+				selCol <- selCol[selCol %in% colnames(expProfile)]
+				if (length(selCol) == 0) selCol <- 1
+				rk <- rank(rowMeans(expProfile[,selCol,drop=FALSE], na.rm=TRUE))
+			}
 
 			## scale the profile if required
 			if (scaledExpression) expProfile <- t(t(expProfile) / (0.01 + apply(expProfile, 2, max)))
 		}
-		selSample <- selSample[order(rk[selSample], decreasing=FALSE)]
+		if (sortBy == 'expression')
+			selSample <- selSample[order(rk[selSample], decreasing=FALSE)]
 
 		## Gviz changes the row order of heatmap since 1.4.0
 		if (packageVersion('Gviz') > '1.4.0') {
@@ -1163,6 +1170,7 @@ plotHeatmapByGene <- function(
 
 	## sort the transcript based on annotation track
 	geneRegionTrack <- annotationTracks[sapply(annotationTracks, class) == 'GeneRegionTrack'][[1]]
+
 	## estimate the order of transcripts in the geneRegionTrack
 	grange2show <- attr(annotationTracks, 'grange2show')
 	if (is.null(grange2show)) {
@@ -1212,7 +1220,8 @@ plotHeatmapByGene <- function(
 		pushViewport(viewport(layout=grid.layout(1, 3, widths=layout.width)))
 		pushViewport(viewport(layout.pos.col=1, layout.pos.row=1))
 	} 
-	sortSample <- ifelse(sortBy == 'methylation', TRUE, FALSE)
+	sortSample <- ifelse(sortBy == 'data', TRUE, FALSE)
+	
 	plotInfo <- heatmapByChromosome(genoSetList, selGene, annotationTracks=annotationTracks, phenoData=phenoData, 
 				 phonoColorMap=phenoColor, sortSample=sortSample, dataTrackName='Methylation Profile', main=main, ylim=ylim,
 				 cex.main=1, newPlot=FALSE, gradient=gradient, ncolor=ncolor, includeGeneBody=includeGeneBody, ...)

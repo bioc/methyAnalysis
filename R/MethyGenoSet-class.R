@@ -266,11 +266,15 @@ setMethod('asBigMatrix',
 		savePrefix <- match.call(asBigMatrix)[['object']]  
 	} 	
 	saveDir <- file.path(saveDir, paste(savePrefix, 'bigmat', sep='_'))
+	if (all(rowInd == 1:nrow(object))) rowInd <- NULL
+	if (all(colInd == 1:ncol(object))) colInd <- NULL
 	
 	if (is.null(rowInd) && is.null(colInd) && is.null(nCol) && is.null(dimNames) 
 			&& is(assayDataElement(object, assayDataElementNames(object)[1]), 'BigMatrix')) {
 		oldDir <- dirname(assayData(object)[[assayDataElementNames(object)[1]]]$datapath)
-		if (oldDir != saveDir) {
+		if (oldDir == saveDir) {
+			return(object)
+		} else {
 			if (!file.exists(saveDir)) 	dir.create(saveDir,showWarnings=FALSE)
 			sapply(dir(oldDir, full.names=T), file.copy, to=saveDir, overwrite=TRUE, recursive=TRUE)  
 		}
@@ -346,13 +350,14 @@ setMethod('asBigMatrix',
 			pdata <- pData(object)
 			if (length(colInd) < nrow(pdata)) pdata <- pdata[colInd,]
 		}
-		if (class(object) == 'MethyGenoSet') {
-			object.new <- MethyGenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
-		} else {
-			object.new <- GenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
-		}	
-		fData(object.new) <- fData(object)[rowInd,,drop=FALSE]
-		object <- object.new
+		# if (class(object) == 'MethyGenoSet') {
+		# 	object.new <- MethyGenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
+		# } else {
+		# 	object.new <- GenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
+		# }	
+		# fData(object.new) <- fData(object)[rowInd,,drop=FALSE]
+		# object <- object.new
+		fData(object) <- fData(object)[rowInd,,drop=FALSE]
 	}
 	return(object)
 })
