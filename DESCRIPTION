@@ -1,7 +1,7 @@
 Package: methyAnalysis
 Type: Package
 Title: DNA methylation data analysis and visualization
-Version: 1.5.0
+Version: 1.5.1
 Date: 2013-09-25
 Depends: R (>= 2.10), grid, IRanges, GenomicRanges, Biobase (>= 2.5.5), org.Hs.eg.db
 Imports: lumi, methylumi, Gviz, genoset, GenomicRanges, IRanges,
