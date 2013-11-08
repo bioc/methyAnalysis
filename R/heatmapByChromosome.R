@@ -307,6 +307,7 @@ buildAnnotationTracks <- function(
 		lib='org.Hs.eg.db',		# gene annotation library
 		genome='hg19',				# genome version
 		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
+		selectTranscripts=NULL,
 		... ) {
 	
 	## check parameters
@@ -372,6 +373,14 @@ buildAnnotationTracks <- function(
 					extendRange=extendRange, includeGeneBody=includeGeneBody, genome=genome, ...)
 					
 	if (!is.null(transTrack)) {
+		if (!is.null(selectTranscripts)) {
+			selectInd <- which(transcript(transTrack) %in% selectTranscripts)
+			if (length(selectInd) > 0) {
+				transTrack <- transTrack[selectInd]
+			} else {
+				warnings('No selectTranscripts in the regions. Default selection will be used!\n')
+			}
+		}
 		allTracks <- c(allTracks, list(transTrack))
 		## update grange2show
 		grange2show <- attr(transTrack, 'grange2show')

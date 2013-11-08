@@ -7,7 +7,7 @@ Export a MethyGenoSet object to be visualized using external genome browser tool
 Export a MethyGenoSet object to be visualized in IGV, IGB or other tools. Current version supports "gct" or "bw" formats.
 }
 \usage{
-export.methyGenoSet(methyGenoSet, file.format = c("gct", "bw"), exportValue = c("beta", "M"), savePrefix = NULL)
+export.methyGenoSet(methyGenoSet, file.format = c("gct", "bw"), exportValue = c("beta", "M", "intensity"), savePrefix = NULL)
 }
 \arguments{
   \item{methyGenoSet}{

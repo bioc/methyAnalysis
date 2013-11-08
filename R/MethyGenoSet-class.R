@@ -25,11 +25,11 @@ setValidity("MethyGenoSet", function(object)
 MethyGenoSet <- function(locData, exprs, methylated, unmethylated, detection=NULL, pData=NULL, annotation="", universe=NULL, ...) {
 	## convert "RangedData" as "GRanges"
 	if (is(locData, 'RangedData')) locData <- as(locData, 'GRanges')
-	
+	if (!is.null(universe)) genome(locData) <- universe
 	if (is.null(detection)) {
-	object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, universe=universe, exprs=exprs, methylated=methylated, unmethylated=unmethylated, ...)
+	object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, ...)
 	} else {
-	object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, universe=universe, exprs=exprs, methylated=methylated, unmethylated=unmethylated, detection=detection, ...)
+	object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, detection=detection, ...)
 	}
 	return(object)
 }
@@ -295,7 +295,7 @@ setMethod('asBigMatrix',
 		}
 	} 
 	if (is.null(dimNames)) {
-		dimNames <- list(featureNames(object), sampleNames(object))
+		dimNames <- list(rownames(object), colnames(object))
 		## append colnames if nCol is longer than dimNames[[2]]
 		if (length(dimNames[[2]]) < nCol) {
 			appLen <- nCol - length(dimNames[[2]])

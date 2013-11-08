@@ -7,13 +7,14 @@ Smooth the methylation data
 Smooth the methylation data by a sliding window with fixed width in bp unit
 }
 \usage{
-smoothMethyData(methyData, winSize = 250, lib = "FDb.InfiniumMethylation.hg19", bigMatrix=FALSE, 
-		dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...)
+smoothMethyData(methyData, winSize = 250, lib = "FDb.InfiniumMethylation.hg19", p.value.detection.th = 0.05, 
+    bigMatrix=FALSE, dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...)
 }
 \arguments{
   \item{methyData}{A GenoSet or MethyLumiM object}
   \item{winSize}{Half sliding window size in bp unit at each side of the probe}
   \item{lib}{Methylation annotation library}
+  \item{p.value.detection.th}{the threshold of detection p.value used to determine the failed probes, which will be set as NAs.}
   \item{bigMatrix}{whether to save the data as BigMatrix (designed for very large dataset)}
   \item{dir.bigMatrix}{the parent directory to save the BigMatrix data files}
   \item{savePrefix.bigMatrix}{the folder name prefix of the directory to save the BigMatrix data files. The fold name will be like this: paste(savePrefix.bigMatrix, '_bigmat', sep='') }

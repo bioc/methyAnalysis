@@ -8,7 +8,8 @@ Build annotation tracks for visualizing using Gviz package
 Build annotation tracks for visualizing using Gviz package
 }
 \usage{
-buildAnnotationTracks(gene, extendRange = c(2000, 2000), includeGeneBody = TRUE, cytobandInfo = NULL, CpGInfo = NULL, genomeAxis = TRUE, lib = "org.Hs.eg.db", genome = "hg19", genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", ...)
+buildAnnotationTracks(gene, extendRange = c(2000, 2000), includeGeneBody = TRUE, cytobandInfo = NULL, CpGInfo = NULL, genomeAxis = TRUE, 
+  lib = "org.Hs.eg.db", genome = "hg19", genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene", selectTranscripts=NULL,...)
 }
 \arguments{
   \item{gene}{
@@ -37,6 +38,9 @@ genome version
 }
   \item{genomicFeature}{
 genomic features: "TranscriptDb" library or object, "Mart" object
+}
+  \item{selectTranscripts}{
+selected transcripts to show in the annotation track. If it is NULL, all transcripts will be shown.
 }
   \item{\dots}{
 other parameters used by createTranscriptTrack function
