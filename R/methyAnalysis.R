@@ -176,7 +176,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 
 	exprs(methyData) <- ratioData
 	if (is(ratioData, 'BigMatrix'))
-		assayData(methyData) <- attachAssayDataElements(assayData(methyData))
+		assayData(methyData) <- bigmemoryExtras::attachAssayDataElements(assayData(methyData))
 		
 	# methyData <- suppressMessages(methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)])
 	# exprs(methyData) <- smooth.ratioData[rownames(methyData),]
@@ -343,9 +343,11 @@ detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod
   			nonNA.num <- apply(smoothData[naInd,,drop=FALSE], 1, function(x) table(sampleType[!is.na(x)]))
   			## only include those with more than 2 samples in each class
   			tooFewSample.ind <- (apply(nonNA.num, 2, min) < 2)
-        t.test.res <- apply(smoothData[naInd[!tooFewSample.ind],,drop=FALSE], 1, function(x) t.test(x ~ sampleType))
-  			p.value[naInd[!tooFewSample.ind]] <- sapply(t.test.res, function(x) x$p.value)
-  			difference[naInd[!tooFewSample.ind]] <- sapply(t.test.res, function(x) x$estimate[1] -  x$estimate[2])
+  			if (length(naInd[!tooFewSample.ind]) > 0) {
+          t.test.res <- apply(smoothData[naInd[!tooFewSample.ind],,drop=FALSE], 1, function(x) t.test(x ~ sampleType))
+    			p.value[naInd[!tooFewSample.ind]] <- sapply(t.test.res, function(x) x$p.value)
+    			difference[naInd[!tooFewSample.ind]] <- sapply(t.test.res, function(x) x$estimate[1] -  x$estimate[2])
+  			}
   			tstats <- rowttests(smoothData[-naInd,,drop=FALSE], sampleType)
   			p.value[-naInd] <- tstats$p.value
   			difference[-naInd] <- tstats$dm
