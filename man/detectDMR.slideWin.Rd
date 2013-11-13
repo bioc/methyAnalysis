@@ -7,7 +7,8 @@ Detect DMR (Differentially Methylated Region) using slide window smoothing
 Detect DMR (Differentially Methylated Region) using slide window smoothing
 }
 \usage{
-detectDMR.slideWin(methyGenoSet, sampleType, winSize = 250, testMethod = c("ttest", "wilcox"), p.adjust.method = "fdr", ...)
+detectDMR.slideWin(methyGenoSet, sampleType, winSize = 250, testMethod = c("ttest", "wilcox"), 
+  p.adjust.method = "fdr", p.value.detection.th = 0.05, ...)
 }
 \arguments{
   \item{methyGenoSet}{
@@ -24,6 +25,9 @@ test methods
 }
   \item{p.adjust.method}{
 p.value FDR adjust method
+}
+  \item{p.value.detection.th}{
+  the threshold of detection p.value used to determine the failed probes, which will be set as NAs.
 }
   \item{\dots}{
 other paramters

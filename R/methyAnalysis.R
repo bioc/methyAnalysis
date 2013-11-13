@@ -3,7 +3,7 @@
 getMethyProbeLocation <- function(probes, lib="FDb.InfiniumMethylation.hg19") {
 	
 	if (!require(lib, character.only=TRUE)) stop(paste(lib, 'is not installed!'))
-	if (is(probes, 'eSet')) probes <- featureNames(probes)
+	if (is(probes, 'eSet')) probes <- rownames(probes)
 	
 	if (exists(lib)) {
 		lib <- get(lib)
@@ -56,27 +56,29 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19") {
 	if (length(rmInd) > 0) {
 		ff <- ff[-rmInd,]
 		methyLumiM <- methyLumiM[-rmInd,]
+		cat(paste(length(rmInd), 'probes were removed because of lack of chromosome location information!\n'))
 	}
-	ff$CHROMOSOME <- checkChrName(ff$CHROMOSOME)
+	ff$CHROMOSOME <- checkChrName(as.character(ff$CHROMOSOME))
 	
 	hgVersion <- ''
 	## retrieve the hgVersion information from the annotation library
 	if (require(lib, character.only=TRUE)) {
 		dbinfo <- paste(sub('.db$', '', lib), '_dbInfo', sep='')
 		if (exists(dbinfo)) {
-			dbInfo <- do.call(dbInfo, list())
-			rownames(dbInfo) <- dbInfo$name
-			hgVersion <- strsplit(dbInfo['GPSOURCEURL', 'value'], '/')[[1]]
+			dbinfo <- do.call(dbinfo, list())
+			rownames(dbinfo) <- dbinfo$name
+			hgVersion <- strsplit(dbinfo['GPSOURCEURL', 'value'], '/')[[1]]
 			hgVersion <- hgVersion[length(hgVersion)]
 		}
 	}
 	## create RangedData for location information
-	# locdata <- RangedData(ranges=IRanges(start=ff$POSITION, width=1, names=featureNames(methyLumiM)), space=ff$CHROMOSOME, universe=hgVersion)
-	locdata <- GRanges(seqnames=ff$CHROMOSOME, ranges=IRanges(start=ff$POSITION, width=1, names=featureNames(methyLumiM)))
+	# locdata <- RangedData(ranges=IRanges(start=ff$POSITION, width=1, names=rownames(methyLumiM)), space=ff$CHROMOSOME, universe=hgVersion)
+	locdata <- GRanges(seqnames=ff$CHROMOSOME, ranges=IRanges(start=ff$POSITION, width=1, names=rownames(methyLumiM)))
+	genome(locdata) <- hgVersion
 
 	methyGenoSet <- MethyGenoSet(locData=locdata, pData=pData(methyLumiM), annotation=as.character(lib), exprs=exprs(methyLumiM), methylated=methylated(methyLumiM), 
-		unmethylated=unmethylated(methyLumiM), detection=detection(methyLumiM), universe=hgVersion)
-	fData(methyGenoSet) <- oldFeatureData[featureNames(methyGenoSet), ]
+		unmethylated=unmethylated(methyLumiM), detection=detection(methyLumiM))
+	fData(methyGenoSet) <- oldFeatureData[rownames(methyGenoSet), ]
 	methyGenoSet@history <- methyLumiM@history
 	
 	## set smoothing attributes if exists
@@ -92,7 +94,7 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19") {
 
 
 ## smooth the methylation data (MethyLumiM or GenoSet objects) using slide window with fixed windowsize (in bp)
-smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation.hg19', bigMatrix=FALSE, dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...) {
+smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation.hg19', p.value.detection.th=0.05, bigMatrix=FALSE, dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...) {
 
 	if (!is(methyData, 'GenoSet') && !is(methyData, 'MethyLumiM')) {
 		stop("methyData should be a GenoSet or MethyLumiM object!")
@@ -101,7 +103,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	if (is(methyData, 'MethyLumiM')) {
 		chrInfo <- getChrInfo(methyData, lib=lib)
 	} else {
-		chrInfo <- data.frame(PROBEID=featureNames(methyData), CHROMOSOME=genoset::chr(methyData), POSITION=start(methyData), END=end(methyData))
+		chrInfo <- data.frame(PROBEID=rownames(methyData), CHROMOSOME=genoset::chr(methyData), POSITION=start(methyData), END=end(methyData))
 	}
 	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
 	
@@ -129,6 +131,11 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 		methyData <- methyData[index,]
 	}
 	ratioData <- assayData(methyData)$exprs
+	## set NA for those probes having high p-values
+	if (!is.null(assayData(methyData)$detection)) {
+	  naInd <- which(assayData(methyData)$detection > p.value.detection.th)
+	  if (length(naInd) > 0) ratioData[naInd] <- NA
+	}
 	chrInfo <- chrInfo[index,]
 	index <- 1:nrow(ratioData)
 	
@@ -149,7 +156,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 		names(windowIndex.i) <- chrInfoList[[i]]$PROBEID
 		smooth.ratio.i <- sapply(windowIndex.i, function(ind) {
 			# average the values in slide window and perform test
-			smooth.ij <- colMeans(ratioData[index.i[ind],,drop=FALSE])
+			smooth.ij <- colMeans(ratioData[index.i[ind],,drop=FALSE], na.rm=TRUE)
 			return(smooth.ij)
 		})
 		smooth.ratio.i <- t(smooth.ratio.i) 
@@ -169,10 +176,10 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 
 	exprs(methyData) <- ratioData
 	if (is(ratioData, 'BigMatrix'))
-		assayData(methyData) <- attachAssayDataElements(assayData(methyData))
+		assayData(methyData) <- bigmemoryExtras::attachAssayDataElements(assayData(methyData))
 		
 	# methyData <- suppressMessages(methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)])
-	# exprs(methyData) <- smooth.ratioData[featureNames(methyData),]
+	# exprs(methyData) <- smooth.ratioData[rownames(methyData),]
 
 	attr(methyData, 'windowIndex') <- windowIndex
 	attr(methyData, 'windowRange') <- windowRange
@@ -182,12 +189,13 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 
 
 ## export a MethyGenoSet object as a 'gct' (for IGV) or 'bw' (big-wig) file
-export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), exportValue=c('beta', 'M'), savePrefix=NULL) {
+export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), exportValue=c('beta', 'M', 'intensity'), savePrefix=NULL) {
 	
-	exportValue <- match.arg(exportValue)
+	# exportValue <- match.arg(exportValue)
+	exportValue <- exportValue[1]
 	file.format <- match.arg(file.format)
 	## get the annotation version
-	hgVersion <- universe(methyGenoSet)
+	hgVersion <- genome(methyGenoSet)
 	if (is.null(hgVersion) || hgVersion == '') {
 		warnings('hgVersion information is not available in methyGenoSet! hg19 will be used.')
 		hgVersion <- 'hg19'
@@ -213,18 +221,26 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	## attach chr prefix in the chromosome names if it does not include it
 	if (length(grep('^chr', chr)) == 0) {
 		names(locData(methyGenoSet)) <- paste('chr', names(locData(methyGenoSet)), sep='')
-	} 
+	}
 	
-	methyData <- assayDataElement(methyGenoSet, 'exprs')
-	if (exportValue == 'beta') {
-		methyData <- m2beta(methyData) # - 0.5
-	} 
+	if (exportValue %in% c('beta', 'M')) {
+  	methyData <- assayDataElement(methyGenoSet, 'exprs')
+  	if (exportValue == 'beta') {
+  		methyData <- m2beta(methyData) # - 0.5
+  	} 
+	} else if (exportValue %in% assayDataElementNames(methyGenoSet)) {
+	  methyData <- assayDataElement(methyGenoSet, exportValue) 
+	} else if (exportValue == 'intensity') {
+	  methyData <- log2(assayDataElement(methyGenoSet, 'methylated') + assayDataElement(methyGenoSet, 'unmethylated') + 1)
+	} else {
+	  stop("exportValue doesn't exist in the data!")
+	}
 	
 	## only keep 3 digit to save space
 	methyData <- signif(methyData, 3)
 	
 	if (file.format == 'gct') {
-		chrInfo <- data.frame(PROBEID=featureNames(methyGenoSet), CHROMOSOME=genoset::chr(methyGenoSet), START=start(methyGenoSet), END=end(methyGenoSet),	stringsAsFactors=FALSE)
+		chrInfo <- data.frame(PROBEID=rownames(methyGenoSet), CHROMOSOME=genoset::chr(methyGenoSet), START=start(methyGenoSet), END=end(methyGenoSet),	stringsAsFactors=FALSE)
 
 		# remove those probes lack of position information
 		rmInd <- which(is.na(chrInfo$START))
@@ -248,14 +264,14 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
  		chrInfo <- getChromInfoFromUCSC(hgVersion)
 		rownames(chrInfo) <- chrInfo[,'chrom']
  
-		samplenames <- sampleNames(methyGenoSet)
+		samplenames <- colnames(methyGenoSet)
 		pdata <- pData(methyGenoSet)
 		chr.info <- chrInfo(methyGenoSet)
 		seq.lengths <- chr.info[,"stop"] - chr.info[,"offset"]
 		for (i in 1:ncol(methyData)) {		
 			score.i <- methyData[,i]
 			cn.data.i <- GRanges(seqnames=genoset::chr(methyGenoSet), ranges=IRanges(start=start(methyGenoSet),end=end(methyGenoSet)), strand='*', score=score.i)
-			genome(cn.data.i) <- universe(methyGenoSet)
+			genome(cn.data.i) <- genome(methyGenoSet)
 			cn.data.i <- cn.data.i[!is.na(score.i), ]
 			if (savePrefix == '' || is.null(savePrefix)) {
 				savePrefix.i <- samplenames[i]
@@ -277,7 +293,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 ## ratios.obj inlcudes c("PROBEID","CHROMOSOME","POSITION"), values 
 ## winSize is the half slide window size, by default it is 250
 ## 
-detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod=c('ttest', 'wilcox'), p.adjust.method='fdr', ...) {
+detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod=c('ttest', 'wilcox'), p.adjust.method='fdr', p.value.detection.th=0.05, ...) {
 	
 	testMethod <- match.arg(testMethod)
 	if (is(methyGenoSet, 'MethyLumiM')) {
@@ -292,19 +308,24 @@ detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod
 		}
 	} 
 	if (smooth) {
-		methyGenoSet <- smoothMethyData(methyGenoSet, winSize=winSize, ...)
+		methyGenoSet <- smoothMethyData(methyGenoSet, winSize=winSize, p.value.detection.th=p.value.detection.th, ...)
 	}
 	windowIndex <- attr(methyGenoSet, 'windowIndex')	
 	windowRange <- attr(methyGenoSet, 'windowRange')
 	
 	chrInfo <- suppressWarnings(as(locData(methyGenoSet), 'GRanges'))
 	smoothData <- exprs(methyGenoSet)
+	## set NA for those probes having high p-values
+	if (!is.null(assayData(methyGenoSet)$detection)) {
+	  naInd <- which(assayData(methyGenoSet)$detection > p.value.detection.th)
+	  if (length(naInd) > 0) smoothData[naInd] <- NA
+	}
 	
 	## calculate class means
 	uniClass <- unique(sampleType)
 	selInd1 <- which(sampleType == uniClass[1])
 	selInd2 <- which(sampleType == uniClass[2])
-	classMean <- data.frame(rowMeans(smoothData[, selInd1, drop=FALSE]), rowMeans(smoothData[, selInd2, drop=FALSE]))
+	classMean <- data.frame(rowMeans(smoothData[, selInd1, drop=FALSE], na.rm=TRUE), rowMeans(smoothData[, selInd2, drop=FALSE], na.rm=TRUE))
 	names(classMean) <- paste('mean_', uniClass, sep='')
 
 	if (!is.factor(sampleType)) sampleType <- as.factor(sampleType)
@@ -314,9 +335,27 @@ detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod
 		testInfo <- testMethod(smoothData, sampleType, ... )
 	} else {
 		if (testMethod == 'ttest') {
-			tstats <- rowttests(smoothData, sampleType)
-			p.value <- tstats$p.value
-			difference <- tstats$dm
+		  naInd <- which(apply(smoothData, 1, function(x) any(is.na(x))))
+		  if (length(naInd) > 0) {
+        ## do t.test for those with nas
+  			p.value <- difference <- rep(NA, nrow(smoothData))
+  			## check the non-NA sample number for each class
+  			nonNA.num <- apply(smoothData[naInd,,drop=FALSE], 1, function(x) table(sampleType[!is.na(x)]))
+  			## only include those with more than 2 samples in each class
+  			tooFewSample.ind <- (apply(nonNA.num, 2, min) < 2)
+  			if (length(naInd[!tooFewSample.ind]) > 0) {
+          t.test.res <- apply(smoothData[naInd[!tooFewSample.ind],,drop=FALSE], 1, function(x) t.test(x ~ sampleType))
+    			p.value[naInd[!tooFewSample.ind]] <- sapply(t.test.res, function(x) x$p.value)
+    			difference[naInd[!tooFewSample.ind]] <- sapply(t.test.res, function(x) x$estimate[1] -  x$estimate[2])
+  			}
+  			tstats <- rowttests(smoothData[-naInd,,drop=FALSE], sampleType)
+  			p.value[-naInd] <- tstats$p.value
+  			difference[-naInd] <- tstats$dm
+		  } else {
+  			tstats <- rowttests(smoothData, sampleType)
+  			p.value <- tstats$p.value
+  			difference <- tstats$dm
+		  }
 		} else if (testMethod == 'wilcox') {
 			tmp <- split(as.data.frame(t(smoothData)), sampleType)
 			xx <- t(tmp[[1]])
@@ -634,6 +673,8 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 		stop('Wrong type of annotationDatabase! Please check help for more details.')
 	}
 	tr <- checkChrName(tr, addChr=TRUE)	
+  ## make sure the consistence of the genome
+	if (unique(genome(grange)) == '' || is.na(unique(genome(grange)))) genome(grange) <- unique(genome(tr))[1]
 
 	if (is.logical(exons)) {
 		if (exons && is(annotationDatabase, 'TranscriptDb')) {
