@@ -7,7 +7,7 @@ Export a MethyGenoSet object to be visualized using external genome browser tool
 Export a MethyGenoSet object to be visualized in IGV, IGB or other tools. Current version supports "gct" or "bw" formats.
 }
 \usage{
-export.methyGenoSet(methyGenoSet, file.format = c("gct", "bw"), exportValue = c("beta", "M", "intensity"), savePrefix = NULL)
+export.methyGenoSet(methyGenoSet, file.format = c("gct", "bw"), exportValue = c("beta", "M", "intensity"), hgVersion.default = "hg19", savePrefix = NULL, outputFile=NULL)
 }
 \arguments{
   \item{methyGenoSet}{
@@ -19,8 +19,14 @@ Export file format
   \item{exportValue}{
 Export methylation values
 }
+  \item{hgVersion.default}{
+The default human genome version
+}
   \item{savePrefix}{
-The prefix used in the output filename.
+The prefix used in the output filename. Only valid when outputFile is NULL.
+}
+  \item{outputFile}{
+The output file name provided by the user. If file.format is "bw", outputFile should be a character vector with the same length as the sample number, or else it will be ignored.
 }
 }
 \details{

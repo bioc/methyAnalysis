@@ -38,7 +38,7 @@
 
 \section{Creating Objects}{
   MethyGenoSet(locData, exprs, methylated, unmethylated, detection = NULL, 
-    pData = NULL, annotation = "", universe = NULL, ...) 
+    pData = NULL, annotation = "", universe = NULL, assayData=NULL, ...) 
     
   \code{MethyGenoSet} instances are usually created through converting from MethyLumiM object 
   using MethyLumiM2GenoSet function or calling \code{MethyGenoSet} function as shown above. The arguments, 

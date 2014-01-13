@@ -31,7 +31,7 @@ importMethodsFrom(IRanges, space, start, end, width, universe, values, "values<-
 	unlist, as.vector, as.list, as.matrix)
 importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, 
 	"seqnames<-", "seqlevels<-", match, overlapsAny, as.data.frame, distanceToNearest)
-importMethodsFrom(genoset, locData, "locData<-", chrNames, "chrNames<-", chrInfo)
+importMethodsFrom(genoset, locData, "locData<-", chrNames, "chrNames<-", chrInfo, toGenomeOrder)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
 importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts, loadFeatures)

@@ -22,14 +22,20 @@ setValidity("MethyGenoSet", function(object)
 
 
 ## Create MethyGenoSet class
-MethyGenoSet <- function(locData, exprs, methylated, unmethylated, detection=NULL, pData=NULL, annotation="", universe=NULL, ...) {
+MethyGenoSet <- function(locData, exprs, methylated, unmethylated, detection=NULL, pData=NULL, annotation="", universe=NULL, assayData=NULL, ...) {
 	## convert "RangedData" as "GRanges"
 	if (is(locData, 'RangedData')) locData <- as(locData, 'GRanges')
 	if (!is.null(universe)) genome(locData) <- universe
-	if (is.null(detection)) {
-	object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, ...)
+	if (!is.null(assayData)) {
+  	if (is.null(rownames(locData))) rownames(locData) <- rownames(assayData)
+	  if (!all(c('exprs', 'methylated', 'unmethylated') %in% assayDataElementNames(assayData))) stop("'exprs', 'methylated' and 'unmethylated are required in assayData!")
+	  object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, assayData=assayData, ...)
 	} else {
-	object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, detection=detection, ...)
+  	if (is.null(detection)) {
+  	  object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, ...)
+  	} else {
+  	  object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, detection=detection, ...)
+  	}
 	}
 	return(object)
 }
