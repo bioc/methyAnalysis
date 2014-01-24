@@ -283,7 +283,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 		
 		## check version hgVersion is included in the filename
 		if (is.null(outputFile))
-		  outputFile <- paste(savePrefix, "_", exportValue, "_", hgVersion, ".gct", sep='')
+		  outputFile <- paste(savePrefix, "_", exportValue, "_", hgVersion[1], ".gct", sep='')
 		
 		cat("#1.2\n", file=outputFile)
 		cat(paste(dim(gct), collapse='\t', sep=''), "\n", file=outputFile, append=TRUE)
@@ -313,7 +313,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 			if (length(outputFile) == ncol(methyData)) {
         filename.i <- outputFile[i]
 			} else {
-  			filename.i <- paste(savePrefix.i, "_", exportValue, "_", hgVersion, ".bw", sep='')
+  			filename.i <- paste(savePrefix.i, "_", exportValue, "_", hgVersion[1], ".bw", sep='')
 			}
 			export.bw(cn.data.i, filename.i, dataFormat="auto")
 		}
