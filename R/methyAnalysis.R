@@ -189,16 +189,16 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 
 
 ## export a MethyGenoSet object as a 'gct' (for IGV) or 'bw' (big-wig) file
-export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), exportValue=c('beta', 'M', 'intensity'), savePrefix=NULL) {
+export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), exportValue=c('beta', 'M', 'intensity'), hgVersion.default='hg19', savePrefix=NULL, outputFile=NULL) {
 	
 	# exportValue <- match.arg(exportValue)
 	exportValue <- exportValue[1]
 	file.format <- match.arg(file.format)
 	## get the annotation version
 	hgVersion <- genome(methyGenoSet)
-	if (is.null(hgVersion) || hgVersion == '') {
-		warnings('hgVersion information is not available in methyGenoSet! hg19 will be used.')
-		hgVersion <- 'hg19'
+	if (is.null(hgVersion) || unique(hgVersion) == '') {
+		warnings(paste('hgVersion information is not available in methyGenoSet!', hgVersion.default, ' will be used.'))
+		genome(methyGenoSet) <- hgVersion <- hgVersion.default
 	}
 	
 	# chr <- space(locData(methyGenoSet))
@@ -240,29 +240,30 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	methyData <- signif(methyData, 3)
 	
 	if (file.format == 'gct') {
-		chrInfo <- data.frame(PROBEID=rownames(methyGenoSet), CHROMOSOME=genoset::chr(methyGenoSet), START=start(methyGenoSet), END=end(methyGenoSet),	stringsAsFactors=FALSE)
+		chrInfo.all <- data.frame(PROBEID=rownames(methyGenoSet), CHROMOSOME=genoset::chr(methyGenoSet), START=start(methyGenoSet), END=end(methyGenoSet),	stringsAsFactors=FALSE)
 
 		# remove those probes lack of position information
-		rmInd <- which(is.na(chrInfo$START))
+		rmInd <- which(is.na(chrInfo.all$START))
 		if (length(rmInd) > 0)	{
-			chrInfo <- chrInfo[-rmInd,]
+			chrInfo.all <- chrInfo.all[-rmInd,]
 			methyData <- methyData[-rmInd,]
 		}
 		
-		description <- with(chrInfo, paste("|@", CHROMOSOME, ":", START, "-", END, "|", sep=""))
-		gct <- cbind(Name=chrInfo[,'PROBEID'], Description=description, methyData)
+		description <- with(chrInfo.all, paste("|@", CHROMOSOME, ":", START, "-", END, "|", sep=""))
+		gct <- cbind(Name=chrInfo.all[,'PROBEID'], Description=description, methyData)
 		
 		## check version hgVersion is included in the filename
-		 filename <- paste(savePrefix, "_", exportValue, "_", hgVersion, ".gct", sep='')
+		if (is.null(outputFile))
+		  outputFile <- paste(savePrefix, "_", exportValue, "_", hgVersion[1], ".gct", sep='')
 		
-		cat("#1.2\n", file=filename)
-		cat(paste(dim(gct), collapse='\t', sep=''), "\n", file=filename, append=TRUE)
-		suppressWarnings(write.table(gct, sep="\t", file=filename, row.names=FALSE, append=TRUE, quote=FALSE))
-		return(invisible(filename))
+		cat("#1.2\n", file=outputFile)
+		cat(paste(dim(gct), collapse='\t', sep=''), "\n", file=outputFile, append=TRUE)
+		suppressWarnings(write.table(gct, sep="\t", file=outputFile, row.names=FALSE, append=TRUE, quote=FALSE))
+		return(invisible(outputFile))
 
 	} else if (file.format == 'bw') {
- 		chrInfo <- getChromInfoFromUCSC(hgVersion)
-		rownames(chrInfo) <- chrInfo[,'chrom']
+ 		chrInfo.all <- getChromInfoFromUCSC(hgVersion)
+		rownames(chrInfo.all) <- chrInfo.all[,'chrom']
  
 		samplenames <- colnames(methyGenoSet)
 		pdata <- pData(methyGenoSet)
@@ -271,7 +272,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 		for (i in 1:ncol(methyData)) {		
 			score.i <- methyData[,i]
 			cn.data.i <- GRanges(seqnames=genoset::chr(methyGenoSet), ranges=IRanges(start=start(methyGenoSet),end=end(methyGenoSet)), strand='*', score=score.i)
-			genome(cn.data.i) <- genome(methyGenoSet)
+			genome(cn.data.i) <- hgVersion
 			cn.data.i <- cn.data.i[!is.na(score.i), ]
 			if (savePrefix == '' || is.null(savePrefix)) {
 				savePrefix.i <- samplenames[i]
@@ -279,8 +280,12 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 				savePrefix.i <- paste(savePrefix, samplenames[i], sep='_')
 			}
 			
-			seqlengths(cn.data.i) <- chrInfo[as.character(seqlevels(cn.data.i)), 'length']
-			filename.i <- paste(savePrefix.i, "_", exportValue, "_", hgVersion, ".bw", sep='')
+			seqlengths(cn.data.i) <- chrInfo.all[as.character(seqlevels(cn.data.i)), 'length']
+			if (length(outputFile) == ncol(methyData)) {
+        filename.i <- outputFile[i]
+			} else {
+  			filename.i <- paste(savePrefix.i, "_", exportValue, "_", hgVersion[1], ".bw", sep='')
+			}
 			export.bw(cn.data.i, filename.i, dataFormat="auto")
 		}
 		return(invisible(filename.i))
