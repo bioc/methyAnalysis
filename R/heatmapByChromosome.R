@@ -1612,7 +1612,8 @@ plotTracksWithDataTrackInfo <- function(
 .estimateTrackHeight <- function(trackList, grange2show, sizes=NULL, minPoints=50) {
 	
 	trackList <- lapply(trackList, Gviz::subset, from=start(grange2show), to=end(grange2show), chromosome=seqnames(grange2show))
-  trackList <- lapply(trackList, Gviz:::setStacks, from=start(grange2show), to=end(grange2show))
+  # trackList <- lapply(trackList, Gviz:::setStacks, from=start(grange2show), to=end(grange2show))
+  trackList <- lapply(trackList, Gviz:::setStacks)
 	spaceSetup <- Gviz:::.setupTextSize(trackList, sizes=sizes)
 	totalHeight <- as.numeric(convertY(unit(1, 'npc'), 'points'))
 	space.points <- totalHeight * spaceSetup$spaceNeeded

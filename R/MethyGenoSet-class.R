@@ -277,13 +277,20 @@ setMethod('asBigMatrix',
 	
 	if (is.null(rowInd) && is.null(colInd) && is.null(nCol) && is.null(dimNames) 
 			&& is(assayDataElement(object, assayDataElementNames(object)[1]), 'BigMatrix')) {
-		oldDir <- dirname(assayData(object)[[assayDataElementNames(object)[1]]]$datapath)
+	  fieldnames <- ls(assayData(object)[[assayDataElementNames(object)[1]]])
+	  if ('datapath' %in% fieldnames) {
+  		oldDir <- dirname(assayData(object)[[assayDataElementNames(object)[1]]]$datapath)
+	  } else if ('backingfile' %in% fieldnames) {
+  		oldDir <- dirname(assayData(object)[[assayDataElementNames(object)[1]]]$backingfile)
+	  }
+
 		if (oldDir == saveDir) {
 			return(object)
 		} else {
 			if (!file.exists(saveDir)) 	dir.create(saveDir,showWarnings=FALSE)
 			sapply(dir(oldDir, full.names=T), file.copy, to=saveDir, overwrite=TRUE, recursive=TRUE)  
 		}
+	
 		object <- bigmemoryExtras::updateAssayDataElementPaths(object, saveDir)
 		return(object)		
 	}
