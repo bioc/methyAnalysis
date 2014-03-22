@@ -101,7 +101,8 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19", b
 		methyLumiM <- methyLumiM.new		
 		rm(methyLumiM.new)
 	} else {
-		methyLumiM <- methyLumiM[!rmInd,]
+		# methyLumiM <- methyLumiM[!rmInd,]
+		methyLumiM <- methyLumiM[names(locdata), ]
 	}
 	
 	## create RangedData for location information
@@ -224,7 +225,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	exportValue <- exportValue[1]
 	file.format <- match.arg(file.format)
 	## get the annotation version
-	hgVersion <- genome(methyGenoSet)
+	hgVersion <- unname(genome(methyGenoSet)[1])
 	if (is.null(hgVersion) || unique(hgVersion) == '') {
 		warnings(paste('hgVersion information is not available in methyGenoSet!', hgVersion.default, ' will be used.'))
 		genome(methyGenoSet) <- hgVersion <- hgVersion.default
@@ -283,7 +284,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 		
 		## check version hgVersion is included in the filename
 		if (is.null(outputFile))
-		  outputFile <- paste(savePrefix, "_", exportValue, "_", hgVersion[1], ".gct", sep='')
+		  outputFile <- paste(savePrefix, "_", exportValue, "_", hgVersion, ".gct", sep='')
 		
 		cat("#1.2\n", file=outputFile)
 		cat(paste(dim(gct), collapse='\t', sep=''), "\n", file=outputFile, append=TRUE)
@@ -348,7 +349,7 @@ detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod
 	windowRange <- attr(methyGenoSet, 'windowRange')
 	
 	chrInfo <- suppressWarnings(as(locData(methyGenoSet), 'GRanges'))
-	smoothData <- exprs(methyGenoSet)
+	smoothData <- assayData(methyGenoSet)$exprs
 	## set NA for those probes having high p-values
 	if (!is.null(assayData(methyGenoSet)$detection)) {
 	  naInd <- which(assayData(methyGenoSet)$detection > p.value.detection.th)
