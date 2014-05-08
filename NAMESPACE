@@ -1,4 +1,7 @@
 import(methods)
+import(BiocGenerics)
+import(S4Vectors)
+
 importClassesFrom(Biobase, AnnotatedDataFrame, AssayData, eSet, ExpressionSet)
 importMethodsFrom(Biobase, annotation, "annotation<-", 
 		assayData, "assayData<-", 
@@ -27,16 +30,16 @@ importFrom(biomaRt, listAttributes, getBM)
 importClassesFrom(genoset, GenoSet)
 importClassesFrom(IRanges, IRanges, RangedData)
 importClassesFrom(GenomicRanges, GRanges)
-importMethodsFrom(IRanges, space, start, end, width, universe, values, "values<-",
+importMethodsFrom(IRanges, space, start, end, width, universe,
 	unlist, as.vector, as.list, as.matrix)
-importMethodsFrom(GenomicRanges, "genome<-", "seqlengths<-", seqlevels, seqnames, 
-	"seqnames<-", "seqlevels<-", match, overlapsAny, as.data.frame, distanceToNearest)
+importMethodsFrom(GenomicRanges, overlapsAny, distanceToNearest)
 importMethodsFrom(genoset, locData, "locData<-", chrNames, "chrNames<-", chrInfo, toGenomeOrder)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
 importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts, loadFeatures)
 importFrom(IRanges, IRanges, RangedData)
 importFrom(genoset, GenoSet)
+import(GenomeInfoDb)
 importFrom(GenomicRanges, GRanges)
 importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, 
 	BiomartGeneRegionTrack, UcscTrack, DataTrack, stacks, plotTracks, coords, tags)
