@@ -696,7 +696,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	## load human genome information and check overlap with known genes
 	if (is.character(annotationDatabase)) {
 		if (file.exists(annotationDatabase)) {
-			annotationDatabase <- loadFeatures(annotationDatabase)		
+			annotationDatabase <- loadDb(annotationDatabase)		
 		} else if (require(annotationDatabase, character.only=TRUE)) {
 			annotationDatabase <- get(annotationDatabase)
 		} else {
@@ -920,7 +920,7 @@ annotateDMRInfo <- function(DMRInfo, annotationDatabase, CpGInfo=NULL, flankRang
 	## load human genome information and check overlap with known genes
 	if (is.character(annotationDatabase)) {
 		if (file.exists(annotationDatabase)) {
-			annotationDatabase <- loadFeatures(annotationDatabase)		
+			annotationDatabase <- loadDb(annotationDatabase)		
 		} else if (require(annotationDatabase, character.only=TRUE)) {
 			annotationDatabase <- get(annotationDatabase)
 		} else {

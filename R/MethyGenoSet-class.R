@@ -27,7 +27,7 @@ MethyGenoSet <- function(locData, exprs, methylated, unmethylated, detection=NUL
 	if (is(locData, 'RangedData')) locData <- as(locData, 'GRanges')
 	if (!is.null(universe)) genome(locData) <- universe
 	if (!is.null(assayData)) {
-  	if (is.null(rownames(locData))) rownames(locData) <- rownames(assayData)
+  	if (is.null(rownames(locData))) names(locData) <- rownames(assayData)
 	  if (!all(c('exprs', 'methylated', 'unmethylated') %in% assayDataElementNames(assayData))) stop("'exprs', 'methylated' and 'unmethylated are required in assayData!")
 	  object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, assayData=assayData, ...)
 	} else {
