@@ -22,7 +22,7 @@ importMethodsFrom(methylumi, methylated, unmethylated, "detection", "methylated<
 	"dataType<-")
 
 importFrom(annotate, lookUp, getSYMBOL)
-importFrom(AnnotationDbi, get, mget)
+importFrom(AnnotationDbi, get, mget, loadDb)
 importFrom(genefilter, rowttests)
 importFrom(biomaRt, listAttributes, getBM)
 
@@ -36,7 +36,7 @@ importMethodsFrom(GenomicRanges, overlapsAny, distanceToNearest)
 importMethodsFrom(genoset, locData, "locData<-", chrNames, "chrNames<-", chrInfo, toGenomeOrder)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
-importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts, loadDb)
+importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts)
 importFrom(IRanges, IRanges, RangedData)
 importFrom(genoset, GenoSet)
 import(GenomeInfoDb)
