@@ -1200,4 +1200,52 @@ getEntrezAnnotation <- function(ll=NULL, lib=NULL, from='eg', to='symbol', speci
 
 
 
+## estimate the averaged methylation level within a CMR (GRanges) or a provided gene (transcript) elements based on methylation probe annotation
+# methyProfile <- estimateCMR.methylation('NM_145201', methyGenoSet, estimateFun=mean, probeAnnotation=methyGrange, selectGeneElement=c('exon1', 'upstream500'))
+# plot(m2beta(methyProfile), exprs(selExp)['NM_145201',], ylab='RNA-Seq expression (log2 count)', xlab='DNA methylation (Beta value)', col=rgb(1,0,0, alpha=0.35), pch=19)
+estimateCMR.methylation <- function(cmr, methyGenoSet, tx2probe.corList=NULL, estimateFun=mean, probeAnnotation=NULL, selectGeneElement=c('exon1', 'promoter'), mc.cores=min(12, detectCores())) {
+	
+	if (!is(methyGenoSet, 'GenoSet')) stop('"methyGenoSet" should be a "GenoSet" object!')
+	if (length(cmr) > 1) {
+		methy.cmr <- mclapply(1:length(cmr), function(i) {
+			estimateCMR.methylation(cmr[i], methyGenoSet, tx2probe.corList=tx2probe.corList, estimateFun=estimateFun, probeAnnotation=probeAnnotation, selectGeneElement=selectGeneElement)
+		}, mc.cores=mc.cores)
+		methy.cmr <- do.call('rbind', methy.cmr)
+		rownames(methy.cmr) <- names(cmr)
+		return(methy.cmr)
+	}
+	
+	if (is(cmr, 'GRanges')) {
+		ol <- as.matrix(findOverlaps(cmr, locData(methyGenoSet)))
+		selProbe <- unique(featureNames(methyGenoSet)[ol[,2]])
+	} else if (is.character(cmr)) {
+		## when cmr is a gene Entrez ID
+		if (is.null(probeAnnotation)) {
+			probeAnnotation <- fData(methyGenoSet)
+		} else if (is(probeAnnotation, 'GRanges')) {
+			allProbe <- names(probeAnnotation)
+			probeAnnotation <- values(probeAnnotation)
+			if (!is.null(allProbe))
+				rownames(probeAnnotation) <- allProbe
+		}
+
+		selectGeneElement <- tolower(selectGeneElement)
+		names(probeAnnotation) <- tolower(names(probeAnnotation))
+		selectGeneElement <- intersect(selectGeneElement, names(probeAnnotation))
+		if (length(selectGeneElement) == 0) stop('No "selectGeneElement" is provided!')
+		allProbe <- intersect(rownames(probeAnnotation), featureNames(methyGenoSet))
+		probeAnnotation <- as.matrix(probeAnnotation[allProbe,,drop=FALSE])
+		methyGenoSet <- methyGenoSet[allProbe,]
+		selProbe <- allProbe[apply(probeAnnotation[,selectGeneElement,drop=FALSE], 1, function(x) {
+			return(cmr %in% unlist(strsplit(x, ';')))
+		})]
+	}
+
+	methyProfile <- apply(assayData(methyGenoSet)$exprs[selProbe,,drop=FALSE], 2, estimateFun)		
+
+	attr(methyProfile, 'selProbe') <- selProbe
+	return(methyProfile)
+}
+
+
 

@@ -41,6 +41,7 @@ importFrom(IRanges, IRanges, RangedData)
 importFrom(genoset, GenoSet)
 import(GenomeInfoDb)
 importFrom(GenomicRanges, GRanges)
+importFrom(parallel, detectCores, mclapply)
 importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, 
 	BiomartGeneRegionTrack, UcscTrack, DataTrack, stacks, plotTracks, coords, tags)
 importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-", 
@@ -56,7 +57,7 @@ export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin,
 	export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, 
 	MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, 
 	heatmapByChromosome, plotHeatmapByGene, plotMethylationHeatmapByGene, 
-	plotTracksWithDataTrackInfo, checkChrName
+	plotTracksWithDataTrackInfo, checkChrName, estimateCMR.methylation
 )
 
 
