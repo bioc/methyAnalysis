@@ -16,7 +16,7 @@ createTranscriptTrack(gene, genomicFeature = "TxDb.Hsapiens.UCSC.hg19.knownGene"
 An Entrez gene ID or a GRanges object with length equals one
 }
   \item{genomicFeature}{
-a TranscriptDb library, TranscriptDb object, or Mart object
+a TxDb library, TxDb object, or Mart object
 }
   \item{lib}{
 Entrez annotation library

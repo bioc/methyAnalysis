@@ -37,7 +37,7 @@ gene annotation library
 genome version
 }
   \item{genomicFeature}{
-genomic features: "TranscriptDb" library or object, "Mart" object
+genomic features: "TxDb" library or object, "Mart" object
 }
   \item{selectTranscripts}{
 selected transcripts to show in the annotation track. If it is NULL, all transcripts will be shown.

@@ -25,7 +25,7 @@ createTranscriptTrack <- function(
 		gene <- gene[1]
 	}
 
-	## convert genomicFeature library as TranscriptDb 
+	## convert genomicFeature library as TxDb 
 	if (is.character(genomicFeature)) {
 		if(!require(genomicFeature, character.only = TRUE)) {
 			warning(paste(genomicFeature, 'library is not installed!'))
@@ -53,8 +53,8 @@ createTranscriptTrack <- function(
 		chromosome <- checkChrName(chromosome, addChr=TRUE)	
 	}
 
-	## convert TranscriptDb as "GeneRegionTrack" first
-	if (is(genomicFeature, 'TranscriptDb')) {
+	## convert TxDb as "GeneRegionTrack" first
+	if (is(genomicFeature, 'TxDb')) {
 		if (length(grep('^chr', seqlevels(genomicFeature), ignore.case=TRUE)) == 0) {
 			options(ucscChromosomeNames=FALSE)
 			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=checkChrName(chromosome, addChr=FALSE), showId=TRUE)
@@ -64,7 +64,7 @@ createTranscriptTrack <- function(
 			genomicFeature <- GeneRegionTrack(genomicFeature, chromosome=chromosome, showId=TRUE)
 		}
 		
-		# ## convert a TranscriptDb as GeneRegionTrack for a selected Gene		
+		# ## convert a TxDb as GeneRegionTrack for a selected Gene		
 		# genomicFeature <- GeneRegionTrack(genomicFeature, gene=gene, showId=TRUE)
 		genomicFeature <- checkChrName(genomicFeature, addChr=TRUE)		
 		if (is(grange2show, 'GenomicRanges')) {
@@ -306,7 +306,7 @@ buildAnnotationTracks <- function(
 		genomeAxis=TRUE,			# whether to add genome axis or not
 		lib='org.Hs.eg.db',		# gene annotation library
 		genome='hg19',				# genome version
-		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
+		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TxDb" library or object, "Mart" object
 		selectTranscripts=NULL,
 		... ) {
 	
@@ -408,7 +408,7 @@ heatmapByChromosome <- function(
 		dataTrackName='Methylation Profile',	# title of the data track
 		lib='org.Hs.eg.db',		# gene annotation library
 		genome='hg19',				# genome version
-		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TranscriptDb" library or object, "Mart" object
+		genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene',	# genomic features: "TxDb" library or object, "Mart" object
 		gradient=c("blue", "white", "red"), # gradient color map
 		ncolor=16, 						# number of color levels
 		ylim=NULL,

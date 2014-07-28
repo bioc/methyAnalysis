@@ -16,7 +16,7 @@ annotateGRanges(grange, annotationDatabase, CpGInfo = NULL, exons = FALSE, flank
 A GRanges object
 }
   \item{annotationDatabase}{
-Annotation database: a TranscriptDb package, TranscriptDb object or GRanges object.
+Annotation database: a TxDb package, TxDb object or GRanges object.
 }
   \item{CpGInfo}{
 A Bed file or GRanges object, which keeps the CpG-island information

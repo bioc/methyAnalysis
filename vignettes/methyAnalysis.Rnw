@@ -140,7 +140,7 @@ names(allDMRInfo)
 
 \section{Annotating DMRs}
 
-To understand what genes or gene elements (promoters or exons) are overlapping with these identified DMRs, we need to do annotate. The \Rfunction{annotateDMRInfo} is defined for this purpose. A \Rclass{TranscriptDb} annotation package is required for the annotation process. Here we use the \Rpackage{TxDb.Hsapiens.UCSC.hg19.knownGene} package for the annotation. The \Rpackage{TxDb.Hsapiens.UCSC.hg19.knownGene} package includes the Homo Sapiens data from UCSC build hg19 based on the knownGene Track. Other \Rclass{TranscriptDb} annotation packages, \Rclass{TranscriptDb} or GRanges objects can also be used as annotationDatabase. The \Rfunction{export.DMRInfo} function is to output the annotated DMR information as .csv files.
+To understand what genes or gene elements (promoters or exons) are overlapping with these identified DMRs, we need to do annotate. The \Rfunction{annotateDMRInfo} is defined for this purpose. A \Rclass{TxDb} annotation package is required for the annotation process. Here we use the \Rpackage{TxDb.Hsapiens.UCSC.hg19.knownGene} package for the annotation. The \Rpackage{TxDb.Hsapiens.UCSC.hg19.knownGene} package includes the Homo Sapiens data from UCSC build hg19 based on the knownGene Track. Other \Rclass{TxDb} annotation packages, \Rclass{TxDb} or GRanges objects can also be used as annotationDatabase. The \Rfunction{export.DMRInfo} function is to output the annotated DMR information as .csv files.
 
 <<Identifying DMR>>=
 ## Annotate significant DMR info

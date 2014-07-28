@@ -64,7 +64,7 @@ the Entrez annotation library
 genome name
 }
   \item{genomicFeature}{
-genomic features: "TranscriptDb" library or object, "Mart" object
+genomic features: "TxDb" library or object, "Mart" object
 }
   \item{gradient}{
 the gradient color used by data track heatmap

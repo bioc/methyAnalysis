@@ -16,7 +16,7 @@ annotateDMRInfo(DMRInfo, annotationDatabase, CpGInfo = NULL, flankRange = 500, p
 A GRanges object or a list of GRanges objects (sigDMRInfo and sigDataInfo), which is the return of \code{\link{identifySigDMR}}
 }
   \item{annotationDatabase}{
-Annotation database: a TranscriptDb package, TranscriptDb object or GRanges object.
+Annotation database: a TxDb package, TxDb object or GRanges object.
 }
   \item{CpGInfo}{
 A Bed file or GRanges object, which keeps the CpG-island information

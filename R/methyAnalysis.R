@@ -704,7 +704,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 		}
 	} 
 
-	if (is(annotationDatabase, 'TranscriptDb')) {
+	if (is(annotationDatabase, 'TxDb')) {
 		tr <- transcripts(annotationDatabase, columns=c('gene_id', 'tx_id', 'tx_name'))		
 	} else if (is(annotationDatabase, 'GRanges')) {
 		tr <- annotationDatabase
@@ -716,7 +716,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	if (unique(genome(grange)) == '' || is.na(unique(genome(grange)))) genome(grange) <- unique(genome(tr))[1]
 
 	if (is.logical(exons)) {
-		if (exons && is(annotationDatabase, 'TranscriptDb')) {
+		if (exons && is(annotationDatabase, 'TxDb')) {
 			exons <- exons(annotationDatabase, columns=c('exon_id', 'exon_name', 'exon_rank', 'tx_name'))
 		} else {
 			exons <- NULL
@@ -928,7 +928,7 @@ annotateDMRInfo <- function(DMRInfo, annotationDatabase, CpGInfo=NULL, flankRang
 		}
 	} 
 	
-	if (is(annotationDatabase, 'TranscriptDb')) {
+	if (is(annotationDatabase, 'TxDb')) {
 		## UCSC only includes reviewed genes!!!
 		tr <- transcripts(annotationDatabase, columns=c('gene_id', 'tx_id', 'tx_name'))		
 	} else if (is(annotationDatabase, 'GRanges')) {
