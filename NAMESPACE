@@ -30,10 +30,12 @@ importFrom(biomaRt, listAttributes, getBM)
 importClassesFrom(genoset, GenoSet)
 importClassesFrom(IRanges, IRanges, RangedData)
 importClassesFrom(GenomicRanges, GenomicRanges, GRanges)
+importClassesFrom(VariantAnnotation, VRanges)
 importMethodsFrom(IRanges, space, start, end, width, universe,
 	unlist, as.vector, as.list, as.matrix)
 importMethodsFrom(GenomicRanges, overlapsAny, distanceToNearest)
 importMethodsFrom(genoset, locData, "locData<-", chrNames, "chrNames<-", chrInfo, toGenomeOrder)
+importMethodsFrom(VariantAnnotation, ref, alt, altDepth, totalDepth)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
 importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts)
@@ -57,7 +59,8 @@ export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin,
 	export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, 
 	MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, 
 	heatmapByChromosome, plotHeatmapByGene, plotMethylationHeatmapByGene, 
-	plotTracksWithDataTrackInfo, checkChrName, estimateCMR.methylation
+	plotTracksWithDataTrackInfo, checkChrName, estimateCMR.methylation,
+	estimateMethySeq, filterBisulfiteVariant, getCoverage, identifyCpG
 )
 
 

@@ -1203,12 +1203,12 @@ getEntrezAnnotation <- function(ll=NULL, lib=NULL, from='eg', to='symbol', speci
 ## estimate the averaged methylation level within a CMR (GRanges) or a provided gene (transcript) elements based on methylation probe annotation
 # methyProfile <- estimateCMR.methylation('NM_145201', methyGenoSet, estimateFun=mean, probeAnnotation=methyGrange, selectGeneElement=c('exon1', 'upstream500'))
 # plot(m2beta(methyProfile), exprs(selExp)['NM_145201',], ylab='RNA-Seq expression (log2 count)', xlab='DNA methylation (Beta value)', col=rgb(1,0,0, alpha=0.35), pch=19)
-estimateCMR.methylation <- function(cmr, methyGenoSet, tx2probe.corList=NULL, estimateFun=mean, probeAnnotation=NULL, selectGeneElement=c('exon1', 'promoter'), mc.cores=min(12, detectCores())) {
+estimateCMR.methylation <- function(cmr, methyGenoSet, estimateFun=mean, probeAnnotation=NULL, selectGeneElement=c('exon1', 'promoter'), mc.cores=min(12, detectCores())) {
 	
 	if (!is(methyGenoSet, 'GenoSet')) stop('"methyGenoSet" should be a "GenoSet" object!')
 	if (length(cmr) > 1) {
 		methy.cmr <- mclapply(1:length(cmr), function(i) {
-			estimateCMR.methylation(cmr[i], methyGenoSet, tx2probe.corList=tx2probe.corList, estimateFun=estimateFun, probeAnnotation=probeAnnotation, selectGeneElement=selectGeneElement)
+			estimateCMR.methylation(cmr[i], methyGenoSet, estimateFun=estimateFun, probeAnnotation=probeAnnotation, selectGeneElement=selectGeneElement)
 		}, mc.cores=mc.cores)
 		methy.cmr <- do.call('rbind', methy.cmr)
 		rownames(methy.cmr) <- names(cmr)
