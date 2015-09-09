@@ -353,7 +353,7 @@ buildAnnotationTracks <- function(
 	## CpG-island track
 	if (!is.null(CpGInfo)) {
 		if (is.character(CpGInfo)) {
-			CpGInfo <- import.bed(CpGInfo, asRangedData=F)
+			CpGInfo <- import.bed(CpGInfo)
 		} else if (!is(CpGInfo, 'GRanges') && !is.na(CpGInfo)) {
 			stop('CpGInfo should be either a bed file or a GRanges object!')
 		}

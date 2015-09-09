@@ -733,7 +733,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	names(tx2gene) <- unlist(values(tr)$tx_name)
 
 	if (is.character(CpGInfo)) {
-		CpG.grange <- import.bed(CpGInfo[1], asRangedData=FALSE)
+		CpG.grange <- import.bed(CpGInfo[1])
 	} else if (is(CpGInfo, 'GRanges')) {
 		CpG.grange <- CpGInfo
 	} else if (is.null(CpGInfo) || is.na(CpGInfo)) {
@@ -942,7 +942,7 @@ annotateDMRInfo <- function(DMRInfo, annotationDatabase, CpGInfo=NULL, flankRang
 	names(tr) <- values(tr)$tx_id
 
 	if (is.character(CpGInfo)) {
-		CpG.grange <- import.bed(CpGInfo[1], asRangedData=FALSE)
+		CpG.grange <- import.bed(CpGInfo[1])
 	} else if (is(CpGInfo, 'GRanges')) {
 		CpG.grange <- CpGInfo
 	} else if (is.null(CpGInfo) || is.na(CpGInfo)) {
