@@ -768,18 +768,29 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	tss <- flank(tr, width=-1, start=TRUE)
 	if (any(is.na(txName.known))) {
 		naInd <- which(is.na(txName.known))
-		nearestInfo.tr <- IRanges::as.matrix(nearest(grange[naInd], tr, select="all"))
+		# nearestInfo.tr <- IRanges::as.matrix(nearest(grange[naInd], tr, select="all"))
+		# 
+		# nearestTx <- tapply(nearestInfo.tr[,2], nearestInfo.tr[,1], function(ind) names(tr)[ind])
+		# multiMapInd <- which(sapply(nearestTx, length) > 1)
+		# if (length(multiMapInd) > 0) {
+		# 	multiMapInd <- as.numeric(names(nearestTx)[multiMapInd])
+		# 	for (i in multiMapInd) {
+		# 		nearestTx.i <- nearestTx[[i]]
+		# 		nearestTx[[i]] <- nearestTx.i[nearest(grange[naInd][i], tss[nearestTx.i])]
+		# 	}
+		# }
+		# txName.known[naInd] <- unlist(nearestTx)
+		naIndGrange = grange[naInd]
+		nearestInfo.tr <- IRanges::as.matrix(nearest(naIndGrange, tr, select="all"))
+		naIndGrange.expanded = naIndGrange[ nearestInfo.tr[,"queryHits"] ]
+		stopifnot( identical(names(tss), names(tr) ) )
+		tss.expanded = tss[ nearestInfo.tr[,"subjectHits"] ]
+		nearestInfo.tr = cbind( nearestInfo.tr, TSSDist=abs( start(naIndGrange.expanded) - start(tss.expanded) ) )
+		nearestInfo.tr = nearestInfo.tr[ order(nearestInfo.tr[,"queryHits"], nearestInfo.tr[,"TSSDist"]),]
+		nearestInfo.tr = nearestInfo.tr[ !duplicated(nearestInfo.tr[,"queryHits"]),]
+		txName.known[naInd] <- names(tss)[ nearestInfo.tr[,"subjectHits"] ]
+		## Suggested modification from Peter Haverty in Sept. 2015
 		
-		nearestTx <- tapply(nearestInfo.tr[,2], nearestInfo.tr[,1], function(ind) names(tr)[ind])
-		multiMapInd <- which(sapply(nearestTx, length) > 1)
-		if (length(multiMapInd) > 0) {
-			multiMapInd <- as.numeric(names(nearestTx)[multiMapInd])
-			for (i in multiMapInd) {
-				nearestTx.i <- nearestTx[[i]]
-				nearestTx[[i]] <- nearestTx.i[nearest(grange[naInd][i], tss[nearestTx.i])]
-			}
-		}
-		txName.known[naInd] <- unlist(nearestTx)
 		values(grange)$Transcript <- txName.known
 	}
 	## add related EntrezID and GeneSymbol
@@ -813,7 +824,6 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	## find the overlapping with gene body
 	if (checkGeneBody) {
 		OL.gene <- findOverlaps(grange.ext, tr)	
-				
 		dmr2gene <- cbind(values(grange.ext)$id[queryHits(OL.gene)], 
 			sapply(values(tr)$gene_id[subjectHits(OL.gene)], paste, collapse=';'))
 		dupInd <- duplicated(paste(dmr2gene[,1], dmr2gene[,2], sep='_'))

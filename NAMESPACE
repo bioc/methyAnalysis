@@ -1,6 +1,5 @@
 import(methods)
 import(BiocGenerics)
-import(S4Vectors)
 
 importClassesFrom(Biobase, AnnotatedDataFrame, AssayData, eSet, ExpressionSet)
 importMethodsFrom(Biobase, annotation, "annotation<-", 
