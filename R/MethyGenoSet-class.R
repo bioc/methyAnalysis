@@ -1,145 +1,85 @@
 ## ---------------------------------------------------------------
 ## define a new class MethyGenoSet
 setClass('MethyGenoSet', 
-	representation(history='data.frame'), 
+	representation(history='data.frame', annotation='character'), 
 	prototype=list(history=data.frame(
 		submitted	 = I(vector()),
 		finished	= I(vector()),
 		command	 = I(vector()),
 		lumiVersion = I(vector())
-	)), 
+	), annotation=''), 
 	contains='GenoSet')
 
 
 setValidity("MethyGenoSet", function(object) 
 {
-	msg <- Biobase:::validMsg(NULL, Biobase:::isValidVersion(object, "eSet"))
-	msg <- Biobase:::validMsg(msg, assayDataValidMembers(assayData(object), c("exprs")))
-	msg <- Biobase:::validMsg(msg, assayDataValidMembers(assayData(object), c("methylated")))
-	msg <- Biobase:::validMsg(msg, assayDataValidMembers(assayData(object), c("unmethylated")))
+	msg <- NULL
+	if (!all(c('exprs', 'methylated', 'unmethylated') %in% names(assays(object))))
+		msg <- 'exprs, methylated and unmethylated data matrix are required in assayData!'
 	if (is.null(msg)) TRUE else msg
 })
 
 
 ## Create MethyGenoSet class
-MethyGenoSet <- function(locData, exprs, methylated, unmethylated, detection=NULL, pData=NULL, annotation="", universe=NULL, assayData=NULL, ...) {
+MethyGenoSet <- function(rowRanges, exprs=NULL, methylated=NULL, unmethylated=NULL, detection=NULL, pData=NULL, annotation="", universe=NULL, assays=NULL, ...) {
 	## convert "RangedData" as "GRanges"
-	if (is(locData, 'RangedData')) locData <- as(locData, 'GRanges')
-	if (!is.null(universe)) genome(locData) <- universe
-	if (!is.null(assayData)) {
-  	if (is.null(rownames(locData))) names(locData) <- rownames(assayData)
-	  if (!all(c('exprs', 'methylated', 'unmethylated') %in% assayDataElementNames(assayData))) stop("'exprs', 'methylated' and 'unmethylated are required in assayData!")
-	  object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, assayData=assayData, ...)
+	if (is(rowRanges, 'RangedData')) rowRanges <- as(rowRanges, 'GRanges')
+	if (!is.null(universe)) genome(rowRanges) <- universe
+	if (!is.null(assays)) {
+  	  #if (is.null(rownames(rowRanges))) names(rowRanges) <- rownames(assays)
+	  if (!all(c('exprs', 'methylated', 'unmethylated') %in% names(assays))) stop("'exprs', 'methylated' and 'unmethylated are required in assayData!")
+	  object <- GenoSet(rowRanges=rowRanges, colData=pData, assays=assays, ...)
 	} else {
-  	if (is.null(detection)) {
-  	  object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, ...)
-  	} else {
-  	  object <- genoset:::initGenoSet(type="MethyGenoSet", locData=locData, pData=pData, annotation=annotation, exprs=exprs, methylated=methylated, unmethylated=unmethylated, detection=detection, ...)
-  	}
+	  assays <- list(exprs=exprs, methylated=methylated, unmethylated=unmethylated, detecton=detection)
+	  object <- GenoSet(rowRanges=rowRanges, colData=pData, assays=assays, ...)
 	}
+	object <- new('MethyGenoSet', object)
+	object@annotation <- annotation
 	return(object)
 }
 
 setGeneric("asBigMatrix", function(object, ...) standardGeneric("asBigMatrix"))
+setGeneric("assayElement", function(object, element, ...) standardGeneric("assayElement"))
+setGeneric("assayElement<-", function(object, element, value, ...) standardGeneric("assayElement<-"))
 
 setMethod("exprs", signature(object="MethyGenoSet"), function(object) {
-	if ('exprs' %in% assayDataElementNames(object)) {
-		return(assayDataElement(object,"exprs"))
-	} else {
-		return(NULL)
-	}
+	return(assays(object)$exprs)
 })
 
 setReplaceMethod("exprs", signature(object="MethyGenoSet"), function(object, value) {
-	if (is.null(value)) {
-		assay <- assayData(object)
-		if (exists('exprs', envir=assay)) {
-			oldMode <- storageMode(assay)
-			storageMode(assay) <- 'environment'
-			rm(methylated, envir=assay)
-			storageMode(assay) <- oldMode
-			assayData(object) <- assay
-		}
-		return(object)
-	} else {
-		assayDataElementReplace(object, "exprs", value)
-	}
-})	
+	assays(object)$exprs <- value
+	return(object)
+})
 
 
 setMethod("methylated", signature(object="MethyGenoSet"), function(object) {
-	if ('methylated' %in% assayDataElementNames(object)) {
-		return(assayDataElement(object,"methylated"))
-	} else {
-		return(NULL)
-	}
+	return(assays(object)$methylated)
 })
 
 setReplaceMethod("methylated", signature(object="MethyGenoSet"), function(object, value) {
-	if (is.null(value)) {
-		assay <- assayData(object)
-		if (exists('methylated', envir=assay)) {
-			oldMode <- storageMode(assay)
-			storageMode(assay) <- 'environment'
-			rm(methylated, envir=assay)
-			storageMode(assay) <- oldMode
-			assayData(object) <- assay
-		}
-		return(object)
-	} else {
-		assayDataElementReplace(object, "methylated", value)
-	}
-})	
+	assays(object)$methylated <- value
+	return(object)
+})
 
 
 setMethod("unmethylated", signature(object="MethyGenoSet"), function(object) {
-	if ('unmethylated' %in% assayDataElementNames(object)) {
-		return(assayDataElement(object,"unmethylated"))
-	} else {
-		return(NULL)
-	}
+	return(assays(object)$unmethylated)
 })
 
 setReplaceMethod("unmethylated", signature(object="MethyGenoSet"), function(object, value) {
-	if (is.null(value)) {
-		assay <- assayData(object)
-		if (exists('methylated', envir=assay)) {
-			oldMode <- storageMode(assay)
-			storageMode(assay) <- 'environment'
-			rm(unmethylated, envir=assay)
-			storageMode(assay) <- oldMode
-			assayData(object) <- assay
-		}
-		return(object)
-	} else {
-		assayDataElementReplace(object, "unmethylated", value)
-	}
+	assays(object)$unmethylated <- value
+	return(object)
 })	
 	
 
 
 setMethod("detection", signature(object="MethyGenoSet"), function(object) {
-	if ('detection' %in% assayDataElementNames(object)) {
-		return(assayDataElement(object,"detection"))
-	} else {
-		return(NULL)
-	}
+	return(assays(object)$detection)
 })
 
 setReplaceMethod("detection", signature(object="MethyGenoSet"), function(object, value) {
-	if (is.null(value)) {
-		assay <- assayData(object)
-		if (exists('detection', envir=assay)) {
-			oldMode <- storageMode(assay)
-			storageMode(assay) <- 'environment'
-			rm(detection, envir=assay)
-			storageMode(assay) <- oldMode
-			assayData(object) <- assay
-		}
-		return(object)
-	} else {
-		assayDataElementReplace(object, "detection", value)
-	}
+	assays(object)$detection <- value
+	return(object)
 })	
 
 
@@ -205,20 +145,21 @@ setMethod("[", "MethyGenoSet", function(x, i, j, ..., drop = FALSE)	{
 
 ## convert MethyLumiM class object to GenoSet class object
 setAs("MethyGenoSet", "MethyLumiM", function(from) {
-	oldFeatureData <- fData(from)
-	locdata <- locData(from)
+	#oldFeatureData <- fData(from)
+	locdata <- rowRanges(from)
+	oldFeatureData <- mcols(locdata)
 	chrInfo <- data.frame(CHROMOSOME=as.character(genoset::chr(locdata)), POSITION=start(locdata))
 
-	methyLumiM <- new('MethyLumiM', phenoData=phenoData(from), annotation=annotation(from), exprs=exprs(from), 
+	methyLumiM <- new('MethyLumiM', phenoData=as(as.data.frame(colData(from)), 'AnnotatedDataFrame'), annotation=from@annotation, exprs=exprs(from), 
 			methylated=methylated(from), unmethylated=unmethylated(from))
-	assayData(methyLumiM) <- assayData(from)		
+	assayData(methyLumiM) <- as.list(assays(from))		
 	dataType(methyLumiM) <- 'M'
 	if (ncol(oldFeatureData) > 0) {
 		ff <- data.frame(chrInfo, oldFeatureData)
 	}	else {
 		ff <- chrInfo
 	}
-	fData(methyLumiM) <- ff
+    fData(methyLumiM) <- ff
 	methyLumiM@history <- from@history
 	
 	## set smoothing attributes if exists
@@ -236,23 +177,24 @@ setAs("MethyGenoSet", "MethyLumiM", function(from) {
 
 setAs("GenoSet", "MethyGenoSet", function(from) {
 	
-	if (!all(c("unmethylated", "methylated") %in% assayDataElementNames(from))) {
+	if (!all(c("unmethylated", "methylated") %in% names(assays(from)))) {
 		stop("The input should include 'methylated' and 'unmethylated' elements in the assayData slot!\n")
 	}
 	
-	if (is.null(assayDataElement(from,"exprs"))) {
+	if (is.null(assayElement(from,"exprs"))) {
 		from <- estimateM(from)
 	}
-	mm <- assayDataElement(from,"exprs")
-	if (!is.null(assayDataElement(from,"detection"))) {
-		methyGenoSet <- MethyGenoSet(locData=locData(from), pData=pData(from), annotation=annotation(from), 
-				exprs=assayDataElement(from,"exprs"), methylated=assayDataElement(from,"methylated"), unmethylated=assayDataElement(from,"unmethylated"), 
-				detection=assayDataElement(from,"detection"))
+	mm <- assayElement(from,"exprs")
+	if (!is.null(assayElement(from,"detection"))) {
+		methyGenoSet <- MethyGenoSet(rowRanges=rowRanges(from), pData=pData(from), annotation=annotation(from), 
+				exprs=assayElement(from,"exprs"), methylated=assayElement(from,"methylated"), unmethylated=assayElement(from,"unmethylated"), 
+				detection=assayElement(from,"detection"))
 	} else {
-		methyGenoSet <- MethyGenoSet(locData=locData(from), pData=pData(from), annotation=annotation(from), 
-				exprs=assayDataElement(from,"exprs"), methylated=assayDataElement(from,"methylated"), unmethylated=assayDataElement(from,"unmethylated"))
+		methyGenoSet <- MethyGenoSet(rowRanges=rowRanges(from), pData=pData(from), annotation=annotation(from), 
+				exprs=assayElement(from,"exprs"), methylated=assayElement(from,"methylated"), unmethylated=assayElement(from,"unmethylated"))
 	}
-	fData(methyGenoSet) <- fData(from)
+    #fData(methyGenoSet) <- fData(from)
+    rowRanges(methyGenoSet) <- rowRanges(from)
 	return(methyGenoSet)
 })
 
@@ -276,12 +218,12 @@ setMethod('asBigMatrix',
 	if (all(colInd == 1:ncol(object))) colInd <- NULL
 	
 	if (is.null(rowInd) && is.null(colInd) && is.null(nCol) && is.null(dimNames) 
-			&& is(assayDataElement(object, assayDataElementNames(object)[1]), 'BigMatrix')) {
-	  fieldnames <- ls(assayData(object)[[assayDataElementNames(object)[1]]])
+			&& is(assayElement(object, assayNames(object)[1]), 'BigMatrix')) {
+	  fieldnames <- ls(assayData(object)[[assayNames(object)[1]]])
 	  if ('datapath' %in% fieldnames) {
-  		oldDir <- dirname(assayData(object)[[assayDataElementNames(object)[1]]]$datapath)
+  		oldDir <- dirname(assays(object)[[assayNames(object)[1]]]$datapath)
 	  } else if ('backingfile' %in% fieldnames) {
-  		oldDir <- dirname(assayData(object)[[assayDataElementNames(object)[1]]]$backingfile)
+  		oldDir <- dirname(assays(object)[[assayNames(object)[1]]]$backingfile)
 	  }
 
 		if (oldDir == saveDir) {
@@ -335,12 +277,12 @@ setMethod('asBigMatrix',
 	}
 	if (nCol > ncol(object)) extensionMode <- TRUE
 	
-	for (ad.name in assayDataElementNames(object)) {
-    matrix.i <- assayDataElement(object, ad.name)
+	for (ad.name in assayNames(object)) {
+    matrix.i <- assayElement(object, ad.name)
 		if (is.null(matrix.i)) next
 		backingfile <- file.path(saveDir, ad.name)
 		
-		if (!is(assayDataElement(object, ad.name), "BigMatrix") && !extensionMode) {
+		if (!is(assayElement(object, ad.name), "BigMatrix") && !extensionMode) {
 			x.mat <- bigmemoryExtras::BigMatrix(matrix.i[dimNames[[1]], dimNames[[2]]], backingfile=backingfile, nrow=nRow, ncol=nCol, dimnames=dimNames, ...)
 		} else {
 			x.mat <- bigmemoryExtras::BigMatrix(backingfile=backingfile, nrow=nRow, ncol=nCol, dimnames=dimNames, ...)
@@ -349,7 +291,7 @@ setMethod('asBigMatrix',
 				x.mat[dimNames[[1]], col.i] <- matrix.i[dimNames[[1]], col.i]
 			}
 		}
-		assayDataElement(object, ad.name) <- x.mat
+		assayElement(object, ad.name) <- x.mat
   }
 	object <- bigmemoryExtras::updateAssayDataElementPaths(object, saveDir)
 
@@ -363,15 +305,32 @@ setMethod('asBigMatrix',
 			pdata <- pData(object)
 			if (length(colInd) < nrow(pdata)) pdata <- pdata[colInd,]
 		}
-		# if (class(object) == 'MethyGenoSet') {
-		# 	object.new <- MethyGenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
-		# } else {
-		# 	object.new <- GenoSet(locData=locData(object), assayData=assayData(object), pData=pdata, universe=universe(object), annotation=annotation(object))
-		# }	
-		# fData(object.new) <- fData(object)[rowInd,,drop=FALSE]
-		# object <- object.new
-		fData(object) <- fData(object)[rowInd,,drop=FALSE]
+        rowRanges(object) <- rowRanges(object)[rowInd]
 	}
 	return(object)
 })
 
+
+setMethod("assayElement", signature(object="SummarizedExperiment"), function(object, element) {
+	return(assays(object)[[element]])
+})
+
+setReplaceMethod("assayElement", signature(object="SummarizedExperiment"), function(object, element, value) {
+	assays(object)[[element]] <- value
+	return(object)
+})
+
+
+updateMethyGenoSet <- function(methyGenoSet) {
+	if (.hasSlot(methyGenoSet, 'assayData')) {
+		locdata <- methyGenoSet@locData
+		fdata <- methyGenoSet@featureData
+		if (!is.null(fdata)) mcols(locdata) <- pData(fdata)
+		genoset <- GenoSet(rowRanges=locdata, assays=as.list(methyGenoSet@assayData), colData=pData(methyGenoSet@phenoData))
+		genoset <- new('MethyGenoSet', genoset)
+		genoset@annotation <- methyGenoSet@annotation
+		return(genoset)
+	} else {
+		return(methyGenoSet)
+	}
+}

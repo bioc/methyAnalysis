@@ -436,10 +436,10 @@ heatmapByChromosome <- function(
 	if (is.null(ylim)) {
 		ylim <- lapply(genoSetList, function(x) {
 			if (th < 1) {
-				up.lim <- quantile(abs(assayData(x)$exprs), th, na.rm=TRUE)
+				up.lim <- quantile(abs(assays(x)$exprs), th, na.rm=TRUE)
 				ylim <- c(-up.lim, up.lim)
 			} else {
-				max.v <- max(abs(assayData(x)$exprs))
+				max.v <- max(abs(assays(x)$exprs))
 				ylim <- c(-max.v, max.v)
 			}
 			return(ylim)
@@ -449,6 +449,7 @@ heatmapByChromosome <- function(
 	
 	if (!is.null(phenoData)) {
 		rn <- rownames(phenoData)
+		if (is(phenoData, 'DataFrame')) phenoData <- as.data.frame(phenoData)
 		## convert the phenoData as numeric matrix
 		if (is.data.frame(phenoData) || is.list(phenoData)) {
 			phenotypeLevels <- lapply(phenoData, function(x) {
@@ -505,7 +506,7 @@ heatmapByChromosome <- function(
 		
 		## select related methylation data	
 		genoSet <- checkChrName(genoSet, addChr=TRUE)
-		grange.data <- suppressWarnings(as(locData(genoSet), 'GRanges'))
+		grange.data <- suppressWarnings(as(rowRanges(genoSet), 'GRanges'))
 		if (is.null(selSample)) {
 			selSample.i <- colnames(genoSet)
 		} else {
@@ -526,7 +527,7 @@ heatmapByChromosome <- function(
 			return(NULL)
 		}
 		if ((sortSample || length(sortSample) == ncol(selMethyData)) && nrow(selMethyData) > 0 && ncol(selMethyData) > 1) {
-			hcr <- hclust(dist(t(assayData(selMethyData)$exprs)))
+			hcr <- hclust(dist(t(assays(selMethyData)$exprs)))
 			ddr <- as.dendrogram(hcr)
 			if (length(sortSample) == ncol(selMethyData))
 				ddr <- reorder(ddr, sortSample)
@@ -535,7 +536,7 @@ heatmapByChromosome <- function(
 		}
 
 		## define data track
-		dTrack <- DataTrack(range=suppressWarnings(as(locData(selMethyData), 'GRanges')), data=t(assayData(selMethyData)$exprs), 
+		dTrack <- DataTrack(range=suppressWarnings(as(rowRanges(selMethyData), 'GRanges')), data=t(assays(selMethyData)$exprs), 
 			chromosome=chromosome, name=dataTrackName, type='heatmap',	gradient=gradient, ncolor=ncolor)		
 		
 		names(dTrack) <- names(genoSetList)[i]
@@ -706,19 +707,19 @@ plotMethylationHeatmapByGene <- function(
 		stop('"methyGenoSet" must be a GenoSet object.')
 	
 	if (useBetaValue) {
-		assayDataElement(methyGenoSet, 'exprs') <- m2beta(assayData(methyGenoSet)$exprs)
+		assayElement(methyGenoSet, 'exprs') <- m2beta(assays(methyGenoSet)$exprs)
 		if (th < 1) {
-			up.lim <- max(quantile(abs(assayData(methyGenoSet)$exprs), th, na.rm=TRUE) - 0.5, 0.5 - quantile(abs(assayData(methyGenoSet)$exprs), 1-th, na.rm=TRUE))
+			up.lim <- max(quantile(abs(assays(methyGenoSet)$exprs), th, na.rm=TRUE) - 0.5, 0.5 - quantile(abs(assays(methyGenoSet)$exprs), 1-th, na.rm=TRUE))
 			ylim <- c(0.5 - up.lim, 0.5 + up.lim)
 		} else {
 			ylim <- c(0, 1)
 		}
 	} else {
 		if (th < 1) {
-			up.lim <- quantile(abs(assayData(methyGenoSet)$exprs), th, na.rm=TRUE)
+			up.lim <- quantile(abs(assays(methyGenoSet)$exprs), th, na.rm=TRUE)
 			ylim <- c(-up.lim, up.lim)
 		} else {
-			max.v <- max(abs(assayData(methyGenoSet)$exprs))
+			max.v <- max(abs(assays(methyGenoSet)$exprs))
 			ylim <- c(-max.v, max.v)
 		}
 	}
@@ -783,6 +784,7 @@ plotMethylationHeatmapByGene <- function(
 		if (is(phenoData, "ExpressionSet")) {
 			phenoData <- exprs(phenoData)
 		} 
+		if (is(phenoData, 'DataFrame')) phenoData <- as.data.frame(phenoData)
 		rn <- rownames(phenoData)
 		## convert the phenoData as numeric matrix
 		if (is.data.frame(phenoData) || is.list(phenoData)) {
@@ -1138,7 +1140,7 @@ plotHeatmapByGene <- function(
 	if (!all(sapply(genoSetList, function(x) is(x, 'GenoSet')))) 
 		stop('"genoSet" must be a GenoSet object or a list of GenoSet objects.')
 	if (is.null(ylim)) {
-		ylim <- range(unlist(lapply(genoSetList, function(x) range(assayData(x)$exprs))))
+		ylim <- range(unlist(lapply(genoSetList, function(x) range(assays(x)$exprs))))
 	}
 	
 	phenotypeLevels <- NULL
@@ -1146,6 +1148,7 @@ plotHeatmapByGene <- function(
 		if (is(phenoData, "ExpressionSet")) {
 			phenoData <- exprs(phenoData)
 		} 
+		if (is(phenoData, 'DataFrame')) phenoData <- as.data.frame(phenoData)
 		rn <- rownames(phenoData)
 		if (is.data.frame(phenoData) || is.list(phenoData)) {
 			phenotypeLevels <- lapply(phenoData, function(x) {
@@ -1638,7 +1641,7 @@ checkChrName <- function(grange, addChr=TRUE) {
 	} else if (is(grange, 'character')) {
 		chrName <- grange
 	} else if (is(grange, 'GenoSet')) {
-		# chrName <- seqlevels(grange@locData)
+		# chrName <- seqlevels(grange@rowRanges)
 		chrName <- chrNames(grange)
 	} else if (is(grange, 'RangedData')) {
 		chrName <- levels(space(grange))
@@ -1666,10 +1669,10 @@ checkChrName <- function(grange, addChr=TRUE) {
 		grange <- chrName
 	} else if (is(grange, 'GenoSet')) {
 		genoset::chrNames(grange) <- chrName
-		# if (is(grange@locData, 'RangedData')) {
-		# 	names(grange@locData) <- chrName
+		# if (is(grange@rowRanges, 'RangedData')) {
+		# 	names(grange@rowRanges) <- chrName
 		# } else {
-		# 	seqlevels(grange@locData) <- chrName
+		# 	seqlevels(grange@rowRanges) <- chrName
 		# }
 	} else if (is(grange, 'RangeTrack')) {
 		seqlevels(ranges(grange)) <- chrName

@@ -89,7 +89,7 @@ data('exampleMethyGenoSet')
 if (require(TxDb.Hsapiens.UCSC.hg19.knownGene)) {
   genomicFeature <- 'TxDb.Hsapiens.UCSC.hg19.knownGene'
   selGene <- '1826'
-  plotHeatmapByGene(selGene, genoSet=exampleMethyGenoSet, phenoData=pData(exampleMethyGenoSet), genomicFeature=genomicFeature)
+  plotHeatmapByGene(selGene, genoSet=exampleMethyGenoSet, phenoData=colData(exampleMethyGenoSet), genomicFeature=genomicFeature)
 }
 
 }

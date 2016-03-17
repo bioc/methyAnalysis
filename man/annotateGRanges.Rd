@@ -55,7 +55,7 @@ See Also \code{\link{annotateDMRInfo}}
 \examples{
 	data(exampleMethyGenoSet)
 	## get sample type information
-	sampleType <- pData(exampleMethyGenoSet)$SampleType
+	sampleType <- colData(exampleMethyGenoSet)$SampleType
 	
 	## Do differential test
 	allResult <- detectDMR.slideWin(exampleMethyGenoSet, sampleType=sampleType, testMethod='ttest')

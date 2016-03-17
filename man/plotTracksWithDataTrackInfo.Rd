@@ -81,7 +81,7 @@ Pan Du
 	if (require(TxDb.Hsapiens.UCSC.hg19.knownGene) && require(Gviz)) {
 		## define data track
 		exampleMethyGenoSet <- checkChrName(exampleMethyGenoSet)
-		dTrack <- DataTrack(range=suppressWarnings(as(locData(exampleMethyGenoSet), 'GRanges')), data=t(exprs(exampleMethyGenoSet)), 
+		dTrack <- DataTrack(range=suppressWarnings(as(rowRanges(exampleMethyGenoSet), 'GRanges')), data=t(exprs(exampleMethyGenoSet)), 
 			chromosome='chr21', type='heatmap')		
 
 		## build annotation tracks

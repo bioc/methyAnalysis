@@ -33,7 +33,7 @@ importClassesFrom(VariantAnnotation, VRanges)
 importMethodsFrom(IRanges, space, start, end, width, universe,
 	unlist, as.vector, as.list, as.matrix)
 importMethodsFrom(GenomicRanges, overlapsAny, distanceToNearest)
-importMethodsFrom(genoset, locData, "locData<-", chrNames, "chrNames<-", chrInfo, toGenomeOrder)
+importMethodsFrom(genoset, rowRanges, "rowRanges<-", chrNames, "chrNames<-", chrInfo, toGenomeOrder)
 importMethodsFrom(VariantAnnotation, ref, alt, altDepth, totalDepth)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
@@ -43,6 +43,17 @@ importFrom(genoset, GenoSet)
 import(GenomeInfoDb)
 importFrom(GenomicRanges, GRanges)
 importFrom(parallel, detectCores, mclapply)
+importFrom("grDevices", "col2rgb", "colorRampPalette", "dev.off",
+           "gray", "palette", "png", "rgb")
+importFrom("stats", "as.dendrogram", "dist", "hclust",
+           "order.dendrogram", "p.adjust", "quantile", "reorder",
+           "t.test", "wilcox.test")
+importFrom("utils", "capture.output", "head", "packageDescription",
+           "packageVersion", "write.csv", "write.table")
+
+importClassesFrom(SummarizedExperiment, SummarizedExperiment)
+importMethodsFrom(SummarizedExperiment, rowRanges, "rowRanges<-", assays, assayNames, "assays<-", colData, rowData, "colData<-", "rowData<-")
+
 importFrom(Gviz, IdeogramTrack, GenomeAxisTrack, AnnotationTrack, GeneRegionTrack, 
 	BiomartGeneRegionTrack, UcscTrack, DataTrack, stacks, plotTracks, coords, tags)
 importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-", 
@@ -51,15 +62,15 @@ importMethodsFrom(Gviz, gene, ranges, feature, subset, chromosome, "chromosome<-
 
 exportClasses(MethyGenoSet)
 exportMethods(asBigMatrix, exprs, "exprs<-", "methylated", "unmethylated", "detection", "methylated<-",
-	"unmethylated<-", "detection<-", getHistory, combine, "[", coerce, locData, 
-	"locData<-", chrNames)
+	"unmethylated<-", "detection<-", getHistory, combine, "[", coerce, chrNames)
 
 export(MethyGenoSet, annotateDMRInfo, annotateGRanges, detectDMR.slideWin, 	
 	export.methyGenoSet, getContinuousRegion, identifySigDMR, export.DMRInfo, 
 	MethyLumiM2GenoSet, smoothMethyData, createTranscriptTrack, buildAnnotationTracks, 
 	heatmapByChromosome, plotHeatmapByGene, plotMethylationHeatmapByGene, 
 	plotTracksWithDataTrackInfo, checkChrName, estimateCMR.methylation,
-	estimateMethySeq, filterBisulfiteVariant, getCoverage, identifyCpG
+	estimateMethySeq, filterBisulfiteVariant, getCoverage, identifyCpG, updateMethyGenoSet,
+	rowRanges, colData, assays
 )
 
 

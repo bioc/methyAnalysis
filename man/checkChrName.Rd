@@ -30,10 +30,10 @@ Pan Du
 \examples{
 
 data(exampleMethyGenoSet)
-seqlevels(locData(exampleMethyGenoSet))
+seqlevels(rowRanges(exampleMethyGenoSet))
 
 tt <- checkChrName(exampleMethyGenoSet, addChr = TRUE)
-seqlevels(locData(tt))
+seqlevels(rowRanges(tt))
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

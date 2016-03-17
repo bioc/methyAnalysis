@@ -37,30 +37,26 @@
 }
 
 \section{Creating Objects}{
-  MethyGenoSet(locData, exprs, methylated, unmethylated, detection = NULL, 
-    pData = NULL, annotation = "", universe = NULL, assayData=NULL, ...) 
+  MethyGenoSet(rowRanges, exprs, methylated, unmethylated, detection = NULL, 
+    pData = NULL, annotation = "", universe = NULL, assays=NULL, ...) 
     
   \code{MethyGenoSet} instances are usually created through converting from MethyLumiM object 
   using MethyLumiM2GenoSet function or calling \code{MethyGenoSet} function as shown above. The arguments, 
-  locData, exprs, methylated and unmethylated, are required; others can be 
+  rowRanges, exprs, methylated and unmethylated, are required; others can be 
   missing. Please check \code{\link[genoset]{GenoSet}} for more details of other parameters.
     
 }
 \section{Slots}{
    \describe{
-   	  \item{\code{locData}:}{a GRanges or RangedData object, inherited from \code{\link[genoset]{GenoSet}}}
-      \item{\code{assayData}:}{ contains equal dimensional matrices:
+   	  \item{\code{rowRanges}:}{a GRanges or RangedData object, inherited from \code{\link[SummarizedExperiment]{SummarizedExperiment}}}
+      \item{\code{assays}:}{ contains equal dimensional matrices:
  		\code{exprs} (contains the methylation M-value, same as \code{\link[methylumi]{MethyLumiM-class}}),
  		\code{methylated} (contains the methylated probe intensities. Same as \code{\link[methylumi]{MethyLumiM-class}}), 
  		\code{unmethylated} (contains the unmethylated probe intensities. Same as \code{\link[methylumi]{MethyLumiM-class}}),
  		\code{detection} (records the detection p-value of the probe. Same as \code{\link[methylumi]{MethyLumiM-class}}). 
-		For more details of \code{assayData}, please see \code{\link[Biobase]{ExpressionSet}} } 
-      \item{\code{featureData}:}{See \code{\link[Biobase]{eSet}}}
-      \item{\code{phenoData}:}{See \code{\link[Biobase]{eSet}}}
-      \item{\code{experimentData}:}{See \code{\link[Biobase]{eSet}}}
-      \item{\code{protocolData}:}{See \code{\link[Biobase]{eSet}}}
-      \item{\code{annotation}:}{See \code{\link[Biobase]{eSet}}}
-      \item{\code{.__classVersion__}:}{See \code{\link[Biobase]{eSet}}}
+		For more details of \code{assays}, please see \code{\link[SummarizedExperiment]{SummarizedExperiment}} } 
+      \item{\code{colData}:}{See \code{\link[SummarizedExperiment]{colData}}}
+      \item{\code{annotation}:}{the annotation library of methylation data}
    	  \item{\code{history}:}{ a data.frame recording the operation history of the MethyGenoSet object.}
    }
 }
@@ -70,13 +66,13 @@
   \bold{Class-specific methods:}
   \describe{
      \item{\code{exprs(MethyGenoSet)}, \code{exprs(MethyGenoSet,matrix)<-}:}{Access and
-       set elements named \code{exprs} in the \code{AssayData-class} slot.}
+       set elements named \code{exprs} in the \code{assays} slot.}
      \item{\code{methylated(MethyGenoSet)}, \code{methylated(MethyGenoSet)<-}:}{Access and
-       set elements named \code{methylated} in the \code{AssayData-class} slot.}
+       set elements named \code{methylated} in the \code{assays} slot.}
      \item{\code{unmethylated(MethyGenoSet)}, \code{unjmethylated(MethyGenoSet)<-}:}{Access and
-       set elements named \code{unmethylated} in the \code{AssayData-class} slot.}
+       set elements named \code{unmethylated} in the \code{assays} slot.}
      \item{\code{detection(MethyGenoSet)}, \code{detection(MethyGenoSet)<-}:}{Access and
-       set elements named \code{detection} in the \code{AssayData-class} slot.}
+       set elements named \code{detection} in the \code{assays} slot.}
 
     \item{\code{as(methyGenoSet,"MethyLumiM")}}{Coerce objects of
       \code{\link{MethyGenoSet-class}} to \code{MethyLumiM}}
@@ -89,19 +85,19 @@
 
    \bold{Derived from \code{\link[genoset]{GenoSet}}}:
    \describe{
-     \item{\code{locData(MethyGenoSet)}:}{return a RangedData object, which contains the chromosome location information}
+     \item{\code{rowRanges(MethyGenoSet)}:}{return a GRanges object, which contains the chromosome location information}
    }
    
-   \bold{Derived from \code{\link[Biobase]{ExpressionSet}}} (For the directly inherited methods, 
-	 please see \code{\link[Biobase]{ExpressionSet}} and \code{\link[Biobase]{eSet}}):
+   \bold{Derived from \code{\link[SummarizedExperiment]{SummarizedExperiment}}} (For the directly inherited methods, 
+	 please see \code{\link[genoset]{GenoSet}} and \code{\link[SummarizedExperiment]{SummarizedExperiment}} ):
    \describe{
-     \item{\code{combine(MethyGenoSet,missing)}:}{Combine two MethyGenoSet objects, including \code{history} slot. See \code{\link[Biobase]{eSet}}}
+     \item{\code{combine(MethyGenoSet,missing)}:}{Combine two MethyGenoSet objects, including \code{history} slot}
 	 \item{\code{exprs(MethyGenoSet)}, \code{exprs(MethyGenoSet,matrix)<-}:}{Access and
-	    set elements named \code{exprs} in the \code{AssayData-class} slot.}
+	    set elements named \code{exprs} in the \code{assays} slot.}
 	 \item{\code{object[(i,j)}:}{Conduct subsetting of the data in a MethyGenoSet object }
    }
 
-   \bold{Standard generic methods} Please check \code{\link[Biobase]{ExpressionSet}} and \code{\link[Biobase]{eSet}} for other inherited methods, 
+   \bold{Standard generic methods} Please check see \code{\link[genoset]{GenoSet}} and \code{\link[SummarizedExperiment]{SummarizedExperiment}} for other inherited methods, 
 
 }
 

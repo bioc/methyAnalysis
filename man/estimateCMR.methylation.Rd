@@ -9,7 +9,7 @@ Estimate the averaged methylation levels within a chromosome region defined as a
 
 }
 \usage{
-estimateCMR.methylation(cmr, methyGenoSet, tx2probe.corList = NULL, estimateFun = mean, probeAnnotation = NULL, selectGeneElement = c("exon1", "promoter"), mc.cores = min(12, detectCores()))
+estimateCMR.methylation(cmr, methyGenoSet, estimateFun = mean, probeAnnotation = NULL, selectGeneElement = c("exon1", "promoter"), mc.cores = min(12, detectCores()))
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

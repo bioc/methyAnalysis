@@ -26,14 +26,14 @@ identifyCpG <- function(bsgenome='Hsapiens', seqnames, genomeLib="BSgenome.Hsapi
     cg_matches <- matchPattern(pattern, subject)
  		mLen_cg <- length(cg_matches)
 		if (mLen_cg > 0) {
-		  match_cg <- GRanges(seqname=rep(seqname, mLen_cg), ranges=IRanges(start=start(cg_matches), end=end(cg_matches)),
+		  match_cg <- GRanges(seqnames=rep(seqname, mLen_cg), ranges=IRanges(start=start(cg_matches), end=end(cg_matches)),
 		               strand=rep('+', mLen_cg), pattern=rep(pattern, mLen_cg))
 			suppressWarnings(matchInfo_CG <- c(matchInfo_CG, match_cg))
 		}
     # gc_matches <- matchPattern('GC', subject)
 		# mLen_gc <- length(gc_matches)
 		# if (mLen_gc > 0) {
-		#   match_gc <- GRanges(seqname=rep(seqname, mLen_gc), ranges=IRanges(start=start(gc_matches), end=end(gc_matches)),
+		#   match_gc <- GRanges(seqnames=rep(seqname, mLen_gc), ranges=IRanges(start=start(gc_matches), end=end(gc_matches)),
 		#                strand=rep('+', mLen_gc), pattern=rep('GC', mLen_gc))
 		# 	suppressWarnings(matchInfo_GC <- c(matchInfo_GC, match_gc))
 		# }

@@ -56,7 +56,7 @@ The package mainly provides functions in the following aspects:
 
 \section{MethyGenoSet-class}
 
-In order to keep the chromosome location information together with the data, we defined a new \Rclass{MethyGenoSet} class as a direct extension of the \Rclass{GenoSet} class in the \Rpackage{genoset} package. The \Rclass{GenoSet} class is an extension of \Rclass{eSet} class. It keeps the chromosome location information in an additional \Rslot{locData} slot, a \Rclass{GRanges} or \Rclass{RangedData} object. For convenience of retrieving the methylation data, we keeps the DNA methylation data (using M-value [2] by default) in the \Rslot{exprs} \Rslot{assayData} element. Users can easily retrieve the methylation data by using \Rmethod{exprs} method.
+In order to keep the chromosome location information together with the data, we defined a new \Rclass{MethyGenoSet} class as a direct extension of the \Rclass{GenoSet} class in the \Rpackage{genoset} package. The \Rclass{GenoSet} class is an extension of \Rclass{eSet} class. It keeps the chromosome location information in an additional \Rslot{rowRanges} slot, a \Rclass{GRanges} or \Rclass{RangedData} object. For convenience of retrieving the methylation data, we keeps the DNA methylation data (using M-value [2] by default) in the \Rslot{exprs} \Rslot{assayData} element. Users can easily retrieve the methylation data by using \Rmethod{exprs} method.
 
 
 \subsection{Example dataset}
@@ -73,13 +73,13 @@ slotNames(exampleMethyGenoSet)
 # showClass('MethyGenoSet')
 
 ## get chromosome location information
-head(locData(exampleMethyGenoSet))
+head(rowRanges(exampleMethyGenoSet))
 
 ## retrieve methylation data
 dim(exprs(exampleMethyGenoSet))
 
 ## Sample information
-pData(exampleMethyGenoSet)
+colData(exampleMethyGenoSet)
 @
 
 \subsection{Input methylation data from other packages}
@@ -119,7 +119,7 @@ Function \Rfunction{detectDMR.slideWin} is designed to perform differential meth
 
 <<Differential methylation test>>=
 ## get sample type information
-sampleType <- pData(exampleMethyGenoSet)$SampleType
+sampleType <- colData(exampleMethyGenoSet)$SampleType
 
 ## Do differential test
 allResult <- detectDMR.slideWin(exampleMethyGenoSet, sampleType=sampleType)
@@ -182,7 +182,7 @@ Another wrapper function, \Rfunction{plotMethylationHeatmapByGene}, is specifica
 \begin{Sinput}
 > ## plot the DNA methylation heatmap by gene of selected GRanges
 > plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, 
-    phenoData=pData(exampleMethyGenoSet), includeGeneBody=TRUE,
+    phenoData=colData(exampleMethyGenoSet), includeGeneBody=TRUE,
     genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene')  
 \end{Sinput}
 
@@ -201,7 +201,7 @@ heatmapByChromosome(exampleMethyGenoSet, gene='6493',  genomicFeature='TxDb.Hsap
 \centering
 <<heatmap_phenotype, fig=TRUE, quiet=TRUE, echo=FALSE>>=
 plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, includeGeneBody=TRUE,
-    phenoData=pData(exampleMethyGenoSet), genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
+    phenoData=colData(exampleMethyGenoSet), genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
     newPlot=FALSE)
 @
 \caption{DNA methylation heatmap by chromosome location with phenotype information}

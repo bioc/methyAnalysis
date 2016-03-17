@@ -93,9 +93,9 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19", b
 		## predefine a big matrix
 		methyLumiM.new <- lumi::asBigMatrix(methyLumiM[names(locdata),1], nCol=ncol(methyLumiM), dimNames=dimNames, saveDir=dir.bigMatrix, savePrefix=savePrefix.bigMatrix)
 		## fill in the subsetted data
-		for (ad.name in assayDataElementNames(methyLumiM.new)) {
-      matrix.new <- assayDataElement(methyLumiM.new, ad.name)
-      matrix.i <- assayDataElement(methyLumiM, ad.name)[names(locdata), ]
+		for (ad.name in assayNames(methyLumiM.new)) {
+      matrix.new <- assayElement(methyLumiM.new, ad.name)
+      matrix.i <- assayElement(methyLumiM, ad.name)[names(locdata), ]
 			matrix.new[, colnames(matrix.i)] <- matrix.i
 		}
 		methyLumiM <- methyLumiM.new		
@@ -106,9 +106,9 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19", b
 	}
 	
 	## create RangedData for location information
-
-	methyGenoSet <- MethyGenoSet(locData=locdata, pData=pData(methyLumiM), annotation=as.character(lib), assayData=assayData(methyLumiM))
-	fData(methyGenoSet) <- oldFeatureData[rownames(methyGenoSet), ]
+	mcols(locdata) <- oldFeatureData[rownames(methyLumiM), ]
+	methyGenoSet <- MethyGenoSet(rowRanges=locdata, pData=pData(methyLumiM), annotation=as.character(lib), assays=as.list(assayData(methyLumiM)))
+	#fData(methyGenoSet) <- oldFeatureData[rownames(methyGenoSet), ]
 	methyGenoSet@history <- methyLumiM@history
 	
 	## set smoothing attributes if exists
@@ -129,7 +129,11 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	if (!is(methyData, 'GenoSet') && !is(methyData, 'MethyLumiM')) {
 		stop("methyData should be a GenoSet or MethyLumiM object!")
 	}
-	
+	if (is(methyData, 'GenoSet')) {
+		assaydata <- as.list(assays(methyData))
+	} else {
+		assaydata <- assayData(methyData)
+	}
 	if (is(methyData, 'MethyLumiM')) {
 		chrInfo <- getChrInfo(methyData, lib=lib)
 	} else {
@@ -137,7 +141,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	}
 	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
 	
-	ratioData.old <- ratioData <- assayData(methyData)$exprs
+	ratioData.old <- ratioData <- assaydata$exprs
 	if (class(ratioData) == 'BigMatrix') {
 		bigMatrix <- TRUE
 	}
@@ -160,10 +164,10 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	} else {
 		methyData <- methyData[index,]
 	}
-	ratioData <- assayData(methyData)$exprs
+	ratioData <- assaydata$exprs
 	## set NA for those probes having high p-values
-	if (!is.null(assayData(methyData)$detection)) {
-	  naInd <- which(assayData(methyData)$detection > p.value.detection.th)
+	if (!is.null(assaydata$detection)) {
+	  naInd <- which(assaydata$detection > p.value.detection.th)
 	  if (length(naInd) > 0) ratioData[naInd] <- NA
 	}
 	chrInfo <- chrInfo[index,]
@@ -205,8 +209,10 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	colnames(windowRange) <- c('startLocation', 'endLocation')
 
 	exprs(methyData) <- ratioData
-	if (is(ratioData, 'BigMatrix'))
-		assayData(methyData) <- bigmemoryExtras::attachAssayDataElements(assayData(methyData))
+	if (is(ratioData, 'BigMatrix')) {
+		assayData(methyData) <- bigmemoryExtras::attachAssayDataElements(assaydata)
+	}
+		
 		
 	# methyData <- suppressMessages(methyData[rownames(smooth.ratioData),colnames(smooth.ratioData)])
 	# exprs(methyData) <- smooth.ratioData[rownames(methyData),]
@@ -231,7 +237,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 		genome(methyGenoSet) <- hgVersion <- hgVersion.default
 	}
 	
-	# chr <- space(locData(methyGenoSet))
+	# chr <- space(rowRanges(methyGenoSet))
 	chr <- genoset::chr(methyGenoSet)
 	start <- start(methyGenoSet)
 	## Sort the rows of ratios.obj
@@ -250,18 +256,18 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 	}
 	## attach chr prefix in the chromosome names if it does not include it
 	if (length(grep('^chr', chr)) == 0) {
-		names(locData(methyGenoSet)) <- paste('chr', names(locData(methyGenoSet)), sep='')
+		names(rowRanges(methyGenoSet)) <- paste('chr', names(rowRanges(methyGenoSet)), sep='')
 	}
 	
 	if (exportValue %in% c('beta', 'M')) {
-  	methyData <- assayDataElement(methyGenoSet, 'exprs')
+  	methyData <- assayElement(methyGenoSet, 'exprs')
   	if (exportValue == 'beta') {
   		methyData <- m2beta(methyData) # - 0.5
   	} 
-	} else if (exportValue %in% assayDataElementNames(methyGenoSet)) {
-	  methyData <- assayDataElement(methyGenoSet, exportValue) 
+	} else if (exportValue %in% assayNames(methyGenoSet)) {
+	  methyData <- assayElement(methyGenoSet, exportValue) 
 	} else if (exportValue == 'intensity') {
-	  methyData <- log2(assayDataElement(methyGenoSet, 'methylated') + assayDataElement(methyGenoSet, 'unmethylated') + 1)
+	  methyData <- log2(assayElement(methyGenoSet, 'methylated') + assayElement(methyGenoSet, 'unmethylated') + 1)
 	} else {
 	  stop("exportValue doesn't exist in the data!")
 	}
@@ -348,11 +354,11 @@ detectDMR.slideWin <- function(methyGenoSet, sampleType, winSize=250, testMethod
 	windowIndex <- attr(methyGenoSet, 'windowIndex')	
 	windowRange <- attr(methyGenoSet, 'windowRange')
 	
-	chrInfo <- suppressWarnings(as(locData(methyGenoSet), 'GRanges'))
-	smoothData <- assayData(methyGenoSet)$exprs
+	chrInfo <- suppressWarnings(as(rowRanges(methyGenoSet), 'GRanges'))
+	smoothData <- assays(methyGenoSet)$exprs
 	## set NA for those probes having high p-values
-	if (!is.null(assayData(methyGenoSet)$detection)) {
-	  naInd <- which(assayData(methyGenoSet)$detection > p.value.detection.th)
+	if (!is.null(assays(methyGenoSet)$detection)) {
+	  naInd <- which(assays(methyGenoSet)$detection > p.value.detection.th)
 	  if (length(naInd) > 0) smoothData[naInd] <- NA
 	}
 	
@@ -726,7 +732,7 @@ annotateGRanges <- function(grange, annotationDatabase, CpGInfo=NULL, exons=FALS
 	}
 	
 	## filter the transcripts without matching gene ids
-	tr <- tr[elementLengths(values(tr)$gene_id) > 0]
+	tr <- tr[elementNROWS(values(tr)$gene_id) > 0]
 	names(tr) <- values(tr)$tx_name
 	tr <- checkChrName(tr, addChr=TRUE)
 	tx2gene <- sub('GeneID:', '', unlist(values(tr)$gene_id))
@@ -948,7 +954,7 @@ annotateDMRInfo <- function(DMRInfo, annotationDatabase, CpGInfo=NULL, flankRang
 	}
 
 	## filter the transcripts without matching gene ids
-	tr <- tr[elementLengths(values(tr)$gene_id) > 0]
+	tr <- tr[elementNROWS(values(tr)$gene_id) > 0]
 	names(tr) <- values(tr)$tx_id
 
 	if (is.character(CpGInfo)) {
@@ -1226,12 +1232,12 @@ estimateCMR.methylation <- function(cmr, methyGenoSet, estimateFun=mean, probeAn
 	}
 	
 	if (is(cmr, 'GRanges')) {
-		ol <- as.matrix(findOverlaps(cmr, locData(methyGenoSet)))
+		ol <- as.matrix(findOverlaps(cmr, rowRanges(methyGenoSet)))
 		selProbe <- unique(featureNames(methyGenoSet)[ol[,2]])
 	} else if (is.character(cmr)) {
 		## when cmr is a gene Entrez ID
 		if (is.null(probeAnnotation)) {
-			probeAnnotation <- fData(methyGenoSet)
+			probeAnnotation <- mcols(rowRanges(methyGenoSet))
 		} else if (is(probeAnnotation, 'GRanges')) {
 			allProbe <- names(probeAnnotation)
 			probeAnnotation <- values(probeAnnotation)
@@ -1251,7 +1257,7 @@ estimateCMR.methylation <- function(cmr, methyGenoSet, estimateFun=mean, probeAn
 		})]
 	}
 
-	methyProfile <- apply(assayData(methyGenoSet)$exprs[selProbe,,drop=FALSE], 2, estimateFun)		
+	methyProfile <- apply(assays(methyGenoSet)$exprs[selProbe,,drop=FALSE], 2, estimateFun)		
 
 	attr(methyProfile, 'selProbe') <- selProbe
 	return(methyProfile)

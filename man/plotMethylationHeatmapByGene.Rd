@@ -115,7 +115,7 @@ data('exampleMethyGenoSet')
 if (require(TxDb.Hsapiens.UCSC.hg19.knownGene)) {
   genomicFeature <- 'TxDb.Hsapiens.UCSC.hg19.knownGene'
   selGene <- '1826'
-  plotMethylationHeatmapByGene(selGene, methyGenoSet=exampleMethyGenoSet, phenoData=pData(exampleMethyGenoSet), genomicFeature=genomicFeature)
+  plotMethylationHeatmapByGene(selGene, methyGenoSet=exampleMethyGenoSet, phenoData=colData(exampleMethyGenoSet), genomicFeature=genomicFeature)
 
   ## use different color map for expression data
   es.example <- matrix(runif(ncol(exampleMethyGenoSet), max=10), nrow=1)
