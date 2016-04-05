@@ -229,7 +229,7 @@ transcriptDb2GeneRegionTrackByGene <- function(genomicFeature, selGene, extendRa
 			return(genomicFeature)
 		} else {
 			## get related transcripts
-			tr <- transcripts(genomicFeature, vals=list(gene_id=selGene), columns=c('gene_id', 'tx_id', 'tx_name'))	
+			tr <- transcripts(genomicFeature, columns=c('gene_id', 'tx_id', 'tx_name'), filter=list(gene_id=selGene))	
 			if (length(tr) == 0) stop('No matched transcripts were found. Please check the format of Gene ID and genomicFeature!')
 			geneRange <- GRanges(seqnames(tr)[1], ranges=IRanges(start=min(start(tr)), end=max(end(tr))), strand=strand(tr)[1])
 		}
