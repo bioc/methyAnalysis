@@ -1,17 +1,18 @@
 Package: methyAnalysis
 Type: Package
 Title: DNA methylation data analysis and visualization
-Version: 1.17.0
+Version: 1.16.0
 Date: 2016-03-15
-Depends: R (>= 2.10), grid, BiocGenerics, IRanges,
-        GenomeInfoDb, GenomicRanges, Biobase (>= 2.5.5), org.Hs.eg.db
-Imports: lumi, methylumi, Gviz, genoset, SummarizedExperiment, GenomicRanges, VariantAnnotation, IRanges,
-        rtracklayer, GenomicFeatures, annotate, Biobase (>= 2.5.5),
-        AnnotationDbi, genefilter, biomaRt, methods, parallel
-Suggests: FDb.InfiniumMethylation.hg19, 
+Depends: R (>= 2.10), grid, BiocGenerics, IRanges, GenomeInfoDb,
+        GenomicRanges, Biobase (>= 2.34.0), org.Hs.eg.db
+Imports: grDevices, stats, utils, lumi, methylumi, Gviz, genoset, SummarizedExperiment, IRanges,
+        GenomicRanges, VariantAnnotation, rtracklayer,
+        GenomicFeatures, annotate, Biobase (>= 2.5.5), AnnotationDbi,
+        genefilter, biomaRt, methods, parallel
+Suggests: FDb.InfiniumMethylation.hg19,
         TxDb.Hsapiens.UCSC.hg19.knownGene
 Author: Pan Du, Richard Bourgon
-Maintainer: Pan Du <dupan.mail@gmail.com>
+Maintainer: Pan Du <dupan.mail@gmail.com>, Lei Huang <lhuang@bsd.uchicago.edu>, Gang Feng <g-feng@northwestern.edu>
 Description: The methyAnalysis package aims for the DNA methylation data  
      analysis and visualization. A MethyGenoSet class is defined to keep the 
      chromosome location information together with the data. The package also includes
@@ -19,8 +20,7 @@ Description: The methyAnalysis package aims for the DNA methylation data
 License: Artistic-2.0
 LazyLoad: yes
 biocViews: Microarray, DNAMethylation, Visualization
-Collate:
-	'MethyGenoSet-class.R'
-	'methyAnalysis.R'
-	'heatmapByChromosome.R'
-	'methyl-seq.R'
+Collate: 'MethyGenoSet-class.R' 'methyAnalysis.R'
+        'heatmapByChromosome.R' 'methyl-seq.R'
+NeedsCompilation: no
+Packaged: 2016-10-17 23:07:51 UTC; biocbuild
