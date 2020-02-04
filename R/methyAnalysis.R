@@ -316,7 +316,7 @@ export.methyGenoSet <- function(methyGenoSet, file.format=c('gct', 'bw'), export
 				savePrefix.i <- paste(savePrefix, samplenames[i], sep='_')
 			}
 			
-			seqlengths(cn.data.i) <- chrInfo.all[as.character(seqlevels(cn.data.i)), 'length']
+			seqlengths(cn.data.i) <- chrInfo.all[as.character(seqlevels(cn.data.i)), 'size']
 			if (length(outputFile) == ncol(methyData)) {
         filename.i <- outputFile[i]
 			} else {

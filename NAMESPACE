@@ -38,7 +38,7 @@ importMethodsFrom(genoset, chrNames, "chrNames<-", chrInfo, toGenomeOrder)
 importMethodsFrom(VariantAnnotation, ref, alt, altDepth, totalDepth)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
-importFrom(GenomicFeatures, getChromInfoFromUCSC, exons, transcripts)
+importFrom(GenomicFeatures, exons, transcripts)
 importFrom(IRanges, IRanges, RangedData)
 importFrom(genoset, GenoSet)
 import(GenomeInfoDb)
