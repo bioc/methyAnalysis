@@ -3,7 +3,7 @@ Type: Package
 Title: DNA methylation data analysis and visualization
 Version: 1.29.2
 Date: 2020-03-25
-Depends: R (>= 2.10), grid, BiocGenerics, IRanges, GenomeInfoDb (>= 1.23.10),
+Depends: R (>= 2.10), grid, BiocGenerics, IRanges, GenomeInfoDb (>= 1.22.0),
         GenomicRanges, Biobase (>= 2.34.0), org.Hs.eg.db
 Imports: grDevices, stats, utils, lumi, methylumi, Gviz, genoset, SummarizedExperiment, IRanges,
         GenomicRanges, VariantAnnotation, rtracklayer,

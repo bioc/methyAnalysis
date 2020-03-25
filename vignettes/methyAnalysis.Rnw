@@ -197,16 +197,16 @@ heatmapByChromosome(exampleMethyGenoSet, gene='6493',  genomicFeature='TxDb.Hsap
 \end{figure}            
 
 
-\begin{figure}
-\centering
-<<heatmap_phenotype, fig=TRUE, quiet=TRUE, echo=FALSE>>=
-plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, includeGeneBody=TRUE,
-    phenoData=colData(exampleMethyGenoSet), genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
-    newPlot=FALSE)
-@
-\caption{DNA methylation heatmap by chromosome location with phenotype information}
-\label{fig:heatmap_phenotype}
-\end{figure}            
+%\begin{figure}
+%\centering
+%<<heatmap_phenotype, fig=TRUE, quiet=TRUE, echo=FALSE>>=
+%plotMethylationHeatmapByGene('6493', methyGenoSet=exampleMethyGenoSet, includeGeneBody=TRUE,
+%    phenoData=colData(exampleMethyGenoSet), genomicFeature='TxDb.Hsapiens.UCSC.hg19.knownGene', 
+%    newPlot=FALSE)
+%@
+%\caption{DNA methylation heatmap by chromosome location with phenotype information}
+%\label{fig:heatmap_phenotype}
+%\end{figure}            
 
 
 \section{sessionInfo}
