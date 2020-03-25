@@ -126,7 +126,7 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19", b
 ## smooth the methylation data (MethyLumiM or GenoSet objects) using slide window with fixed windowsize (in bp)
 smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation.hg19', p.value.detection.th=0.05, bigMatrix=FALSE, dir.bigMatrix='.', savePrefix.bigMatrix=NULL, ...) {
 
-	if (!is(methyData, 'GenoSet') && !is(methyData, 'MethyLumiM')) {
+	if (!is(methyData, 'GenoSet') & !is(methyData, 'MethyLumiM')) {
 		stop("methyData should be a GenoSet or MethyLumiM object!")
 	}
 	if (is(methyData, 'GenoSet')) {
@@ -159,7 +159,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	}
 	
 	if (bigMatrix) {
-		if (!is(ratioData, 'BigMatrix') || !is.null(savePrefix.bigMatrix) || !all(index == 1:length(index)))
+		if (!is(ratioData, 'BigMatrix') | !is.null(savePrefix.bigMatrix) | !all(index == 1:length(index)))
 			methyData <- asBigMatrix(methyData, rowInd=index, savePrefix=savePrefix.bigMatrix, saveDir=dir.bigMatrix)
 	} else {
 		methyData <- methyData[index,]

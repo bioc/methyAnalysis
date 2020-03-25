@@ -238,7 +238,7 @@ setMethod('asBigMatrix',
 	}
 	
 	if (!is.null(dimNames)) {
-		if (!is.list(dimNames) || length(dimNames) != 2) stop("dimNames should be a list with length 2!")
+		if (!is.list(dimNames) | length(dimNames) != 2) stop("dimNames should be a list with length 2!")
 	}
 	nRow <- nrow(object)
 	if (is.null(nCol)) {
@@ -295,7 +295,7 @@ setMethod('asBigMatrix',
   }
 	object <- bigmemoryExtras::updateAssayDataElementPaths(object, saveDir)
 
-	if (extensionMode || subsetMode) {
+	if (extensionMode | subsetMode) {
 		appLen <- nCol - nrow(pData(object))
 		if (length(appLen) > 0) {
 			pdata <- rbind(as.matrix(pData(object)), matrix(NA, nrow=appLen, ncol=ncol(pData(object))))
