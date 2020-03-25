@@ -142,7 +142,7 @@ smoothMethyData <- function(methyData, winSize=250, lib='FDb.InfiniumMethylation
 	if (is.character(chrInfo$POSITION)) chrInfo$POSITION = as.numeric(chrInfo$POSITION)
 	
 	ratioData.old <- ratioData <- assaydata$exprs
-	if (is(ratioData, 'BigMatrix') { 
+	if (is(ratioData, 'BigMatrix')) { 
 		bigMatrix <- TRUE
 	}
 
