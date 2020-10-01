@@ -1643,8 +1643,6 @@ checkChrName <- function(grange, addChr=TRUE) {
 	} else if (is(grange, 'GenoSet')) {
 		# chrName <- seqlevels(grange@rowRanges)
 		chrName <- chrNames(grange)
-	} else if (is(grange, 'RangedData')) {
-		chrName <- levels(space(grange))
 	} else if (is(grange, 'RangeTrack')) {
 		chrName <- seqlevels(ranges(grange))
 	} else {
@@ -1669,11 +1667,6 @@ checkChrName <- function(grange, addChr=TRUE) {
 		grange <- chrName
 	} else if (is(grange, 'GenoSet')) {
 		genoset::chrNames(grange) <- chrName
-		# if (is(grange@rowRanges, 'RangedData')) {
-		# 	names(grange@rowRanges) <- chrName
-		# } else {
-		# 	seqlevels(grange@rowRanges) <- chrName
-		# }
 	} else if (is(grange, 'RangeTrack')) {
 		seqlevels(ranges(grange)) <- chrName
 	} else {

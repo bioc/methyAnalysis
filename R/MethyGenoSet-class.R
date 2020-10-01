@@ -1,17 +1,17 @@
 ## ---------------------------------------------------------------
 ## define a new class MethyGenoSet
-setClass('MethyGenoSet', 
-	representation(history='data.frame', annotation='character'), 
+setClass('MethyGenoSet',
+	representation(history='data.frame', annotation='character'),
 	prototype=list(history=data.frame(
 		submitted	 = I(vector()),
 		finished	= I(vector()),
 		command	 = I(vector()),
 		lumiVersion = I(vector())
-	), annotation=''), 
+	), annotation=''),
 	contains='GenoSet')
 
 
-setValidity("MethyGenoSet", function(object) 
+setValidity("MethyGenoSet", function(object)
 {
 	msg <- NULL
 	if (!all(c('exprs', 'methylated', 'unmethylated') %in% names(assays(object))))
@@ -22,8 +22,6 @@ setValidity("MethyGenoSet", function(object)
 
 ## Create MethyGenoSet class
 MethyGenoSet <- function(rowRanges, exprs=NULL, methylated=NULL, unmethylated=NULL, detection=NULL, pData=NULL, annotation="", universe=NULL, assays=NULL, ...) {
-	## convert "RangedData" as "GRanges"
-	if (is(rowRanges, 'RangedData')) rowRanges <- as(rowRanges, 'GRanges')
 	if (!is.null(universe)) genome(rowRanges) <- universe
 	if (!is.null(assays)) {
   	  #if (is.null(rownames(rowRanges))) names(rowRanges) <- rownames(assays)
@@ -69,8 +67,8 @@ setMethod("unmethylated", signature(object="MethyGenoSet"), function(object) {
 setReplaceMethod("unmethylated", signature(object="MethyGenoSet"), function(object, value) {
 	assays(object)$unmethylated <- value
 	return(object)
-})	
-	
+})
+
 
 
 setMethod("detection", signature(object="MethyGenoSet"), function(object) {
@@ -80,7 +78,7 @@ setMethod("detection", signature(object="MethyGenoSet"), function(object) {
 setReplaceMethod("detection", signature(object="MethyGenoSet"), function(object, value) {
 	assays(object)$detection <- value
 	return(object)
-})	
+})
 
 
 setMethod("getHistory",signature(object="MethyGenoSet"), function(object) object@history)
@@ -91,7 +89,7 @@ setMethod("combine", signature=c(x="MethyGenoSet", y="MethyGenoSet"), function(x
 	history.submitted <- as.character(Sys.time())
 
 	if (missing(y)) return(x)
-	if (length(list(...)) > 0) 
+	if (length(list(...)) > 0)
 		return(combine(x, combine(y, ...)))
 
 	## do default processing of 'GenoSet'
@@ -100,11 +98,11 @@ setMethod("combine", signature=c(x="MethyGenoSet", y="MethyGenoSet"), function(x
 	# history tracking
 	history.finished <- as.character(Sys.time())
 	#history.command <- match.call()
-	history.command <- capture.output(print(match.call(combine)))	
+	history.command <- capture.output(print(match.call(combine)))
 	x.comb@history<- rbind(x@history, y@history)
 	if (is.null(x.comb@history$lumiVersion) && nrow(x@history) > 0) {
 		x.comb@history <- data.frame(x.comb@history, lumiVersion=rep(NA, nrow(x.comb@history)))
-	} 
+	}
 	packageVersion <- paste('methyAnalysis', packageDescription('methyAnalysis')$Version, sep='_')
 	x.comb@history<- rbind(x.comb@history, data.frame(submitted=history.submitted,finished=history.finished,command=history.command, lumiVersion=packageVersion))
 	return(x.comb)
@@ -115,13 +113,13 @@ setMethod("[", "MethyGenoSet", function(x, i, j, ..., drop = FALSE)	{
 
 	if (missing(drop)) drop <- FALSE
 	history.submitted <- as.character(Sys.time())
-	
+
 	## do default processing of 'GenoSet'
 	x <- callNextMethod()
-	
+
 	ddim <- dim(x)
 	if (!missing(i) & !missing(j)) {
-			history.command <- paste('Subsetting', ddim[1], 'features and', ddim[2], 'samples.')		
+			history.command <- paste('Subsetting', ddim[1], 'features and', ddim[2], 'samples.')
 	} else if (!missing(i)) {
 			history.command <- paste('Subsetting', ddim[1], 'features.')
 	} else if (!missing(j)) {
@@ -129,7 +127,7 @@ setMethod("[", "MethyGenoSet", function(x, i, j, ..., drop = FALSE)	{
 	} else {
 			return(x)
 	}
-	
+
 	# history tracking
 	history.finished <- as.character(Sys.time())
 	if (is.null(x@history$lumiVersion) && nrow(x@history) > 0) {
@@ -137,7 +135,7 @@ setMethod("[", "MethyGenoSet", function(x, i, j, ..., drop = FALSE)	{
 	}
 	packageVersion <- paste('methyAnalysis', packageDescription('methyAnalysis')$Version, sep='_')
 	x@history<- rbind(x@history, data.frame(submitted=history.submitted,finished=history.finished, command=history.command, lumiVersion=packageVersion))
-	
+
 	return(x)
 })
 
@@ -150,9 +148,9 @@ setAs("MethyGenoSet", "MethyLumiM", function(from) {
 	oldFeatureData <- mcols(locdata)
 	chrInfo <- data.frame(CHROMOSOME=as.character(genoset::chr(locdata)), POSITION=start(locdata))
 
-	methyLumiM <- new('MethyLumiM', phenoData=as(as.data.frame(colData(from)), 'AnnotatedDataFrame'), annotation=from@annotation, exprs=exprs(from), 
+	methyLumiM <- new('MethyLumiM', phenoData=as(as.data.frame(colData(from)), 'AnnotatedDataFrame'), annotation=from@annotation, exprs=exprs(from),
 			methylated=methylated(from), unmethylated=unmethylated(from))
-	assayData(methyLumiM) <- as.list(assays(from))		
+	assayData(methyLumiM) <- as.list(assays(from))
 	dataType(methyLumiM) <- 'M'
 	if (ncol(oldFeatureData) > 0) {
 		ff <- data.frame(chrInfo, oldFeatureData)
@@ -161,7 +159,7 @@ setAs("MethyGenoSet", "MethyLumiM", function(from) {
 	}
     fData(methyLumiM) <- ff
 	methyLumiM@history <- from@history
-	
+
 	## set smoothing attributes if exists
 	if (!is.null(attr(from, 'windowIndex')))
 		attr(methyLumiM, 'windowIndex') <- attr(from, 'windowIndex')
@@ -176,21 +174,21 @@ setAs("MethyGenoSet", "MethyLumiM", function(from) {
 
 
 setAs("GenoSet", "MethyGenoSet", function(from) {
-	
+
 	if (!all(c("unmethylated", "methylated") %in% names(assays(from)))) {
 		stop("The input should include 'methylated' and 'unmethylated' elements in the assayData slot!\n")
 	}
-	
+
 	if (is.null(assayElement(from,"exprs"))) {
 		from <- estimateM(from)
 	}
 	mm <- assayElement(from,"exprs")
 	if (!is.null(assayElement(from,"detection"))) {
-		methyGenoSet <- MethyGenoSet(rowRanges=rowRanges(from), pData=pData(from), annotation=annotation(from), 
-				exprs=assayElement(from,"exprs"), methylated=assayElement(from,"methylated"), unmethylated=assayElement(from,"unmethylated"), 
+		methyGenoSet <- MethyGenoSet(rowRanges=rowRanges(from), pData=pData(from), annotation=annotation(from),
+				exprs=assayElement(from,"exprs"), methylated=assayElement(from,"methylated"), unmethylated=assayElement(from,"unmethylated"),
 				detection=assayElement(from,"detection"))
 	} else {
-		methyGenoSet <- MethyGenoSet(rowRanges=rowRanges(from), pData=pData(from), annotation=annotation(from), 
+		methyGenoSet <- MethyGenoSet(rowRanges=rowRanges(from), pData=pData(from), annotation=annotation(from),
 				exprs=assayElement(from,"exprs"), methylated=assayElement(from,"methylated"), unmethylated=assayElement(from,"unmethylated"))
 	}
     #fData(methyGenoSet) <- fData(from)
@@ -211,13 +209,13 @@ setMethod('asBigMatrix',
 	if (saveDir == '.') saveDir <- getwd()
 	if (is.null(savePrefix)) {
 		## use the variable name as the bigmatrix directory prefix
-		savePrefix <- match.call(asBigMatrix)[['object']]  
-	} 	
+		savePrefix <- match.call(asBigMatrix)[['object']]
+	}
 	saveDir <- file.path(saveDir, paste(savePrefix, 'bigmat', sep='_'))
 	if (all(rowInd == 1:nrow(object))) rowInd <- NULL
 	if (all(colInd == 1:ncol(object))) colInd <- NULL
-	
-	if (is.null(rowInd) && is.null(colInd) && is.null(nCol) && is.null(dimNames) 
+
+	if (is.null(rowInd) && is.null(colInd) && is.null(nCol) && is.null(dimNames)
 			&& is(assayElement(object, assayNames(object)[1]), 'BigMatrix')) {
 	  fieldnames <- ls(assayData(object)[[assayNames(object)[1]]])
 	  if ('datapath' %in% fieldnames) {
@@ -230,13 +228,14 @@ setMethod('asBigMatrix',
 			return(object)
 		} else {
 			if (!file.exists(saveDir)) 	dir.create(saveDir,showWarnings=FALSE)
-			sapply(dir(oldDir, full.names=T), file.copy, to=saveDir, overwrite=TRUE, recursive=TRUE)  
+			sapply(dir(oldDir, full.names=T), file.copy, to=saveDir, overwrite=TRUE, recursive=TRUE)
 		}
-	
-		object <- bigmemoryExtras::updateAssayDataElementPaths(object, saveDir)
-		return(object)		
+	  ###add if
+	if(require(bigmemoryExtras))
+	{object <- bigmemoryExtras::updateAssayDataElementPaths(object, saveDir)}
+		return(object)
 	}
-	
+
 	if (!is.null(dimNames)) {
 		if (!is.list(dimNames) | length(dimNames) != 2) stop("dimNames should be a list with length 2!")
 	}
@@ -248,7 +247,7 @@ setMethod('asBigMatrix',
 			nCol <- length(dimNames[[2]])
 			if (length(nCol) < ncol(object)) stop('The length of dimNames[[2]] should not be less than the columns of the input object!')
 		}
-	} 
+	}
 	if (is.null(dimNames)) {
 		dimNames <- list(rownames(object), colnames(object))
 		## append colnames if nCol is longer than dimNames[[2]]
@@ -260,7 +259,7 @@ setMethod('asBigMatrix',
 		stop('The length of dimNames[[1]] should be the same as the rows of the input object!')
 	}
 	subsetMode <- FALSE
-	extensionMode <- FALSE 
+	extensionMode <- FALSE
 	if (is.null(rowInd)) {
 		rowInd <- 1:nRow
 	} else {
@@ -276,12 +275,12 @@ setMethod('asBigMatrix',
 		subsetMode <- TRUE
 	}
 	if (nCol > ncol(object)) extensionMode <- TRUE
-	
+
 	for (ad.name in assayNames(object)) {
     matrix.i <- assayElement(object, ad.name)
 		if (is.null(matrix.i)) next
 		backingfile <- file.path(saveDir, ad.name)
-		
+
 		if (!is(assayElement(object, ad.name), "BigMatrix") && !extensionMode) {
 			x.mat <- bigmemoryExtras::BigMatrix(matrix.i[dimNames[[1]], dimNames[[2]]], backingfile=backingfile, nrow=nRow, ncol=nCol, dimnames=dimNames, ...)
 		} else {

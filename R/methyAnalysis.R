@@ -77,7 +77,6 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19", b
 		cat(paste(length(which(rmInd)), 'probes were removed because of lack of chromosome location information!\n'))
 	}
 	ff$CHROMOSOME <- checkChrName(as.character(ff$CHROMOSOME))
-	# locdata <- RangedData(ranges=IRanges(start=ff$POSITION, width=1, names=rownames(methyLumiM)), space=ff$CHROMOSOME, universe=hgVersion)
 	locdata <- GRanges(seqnames=ff$CHROMOSOME, ranges=IRanges(start=ff$POSITION, width=1, names=rownames(methyLumiM)))
 	genome(locdata) <- hgVersion
 	names(locdata) <- rownames(methyLumiM)[!rmInd]
@@ -105,7 +104,7 @@ MethyLumiM2GenoSet <- function(methyLumiM, lib="FDb.InfiniumMethylation.hg19", b
 		methyLumiM <- methyLumiM[names(locdata), ]
 	}
 	
-	## create RangedData for location information
+	
 	mcols(locdata) <- oldFeatureData[rownames(methyLumiM), ]
 	methyGenoSet <- MethyGenoSet(rowRanges=locdata, pData=pData(methyLumiM), annotation=as.character(lib), assays=as.list(assayData(methyLumiM)))
 	#fData(methyGenoSet) <- oldFeatureData[rownames(methyGenoSet), ]
