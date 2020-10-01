@@ -2,17 +2,18 @@ Package: methyAnalysis
 Type: Package
 Title: DNA methylation data analysis and visualization
 Version: 1.31.0
-Date: 2020-03-25
-Depends: R (>= 2.10), grid, BiocGenerics, IRanges, GenomeInfoDb (>= 1.22.0),
-        GenomicRanges, Biobase (>= 2.34.0), org.Hs.eg.db
-Imports: grDevices, stats, utils, lumi, methylumi, Gviz, genoset, SummarizedExperiment, IRanges,
-        GenomicRanges, VariantAnnotation, rtracklayer,
-        GenomicFeatures, annotate, Biobase (>= 2.5.5), AnnotationDbi,
-        genefilter, biomaRt, methods, parallel
+Date: 2020-09-08
+Depends: R (>= 2.10), grid, BiocGenerics, IRanges, GenomeInfoDb (>=
+        1.22.0), GenomicRanges, Biobase (>= 2.34.0), org.Hs.eg.db
+Imports: grDevices, stats, utils, lumi, methylumi, Gviz, genoset,
+        SummarizedExperiment, IRanges, GenomicRanges,
+        VariantAnnotation, rtracklayer,
+        bigmemoryExtras,GenomicFeatures, annotate, Biobase (>= 2.5.5),
+        AnnotationDbi, genefilter, biomaRt, methods, parallel
 Suggests: FDb.InfiniumMethylation.hg19,
         TxDb.Hsapiens.UCSC.hg19.knownGene
 Author: Pan Du, Richard Bourgon
-Maintainer: Lei Huang <lhuang7@uchicago.edu>
+Maintainer: Lei Huang <lhuang1998@gmail.com>
 Description: The methyAnalysis package aims for the DNA methylation data  
      analysis and visualization. A MethyGenoSet class is defined to keep the 
      chromosome location information together with the data. The package also includes
@@ -23,4 +24,10 @@ biocViews: Microarray, DNAMethylation, Visualization
 Collate: 'MethyGenoSet-class.R' 'methyAnalysis.R'
         'heatmapByChromosome.R' 'methyl-seq.R'
 NeedsCompilation: no
-Packaged: 2017-01-09 23:07:51 UTC; biocbuild
+Packaged: 2020-09-08 10:46:30 UTC; duf
+git_url: https://git.bioconductor.org/packages/methyAnalysis
+git_branch: RELEASE_3_11
+git_last_commit: 793bbef
+git_last_commit_date: 2020-04-27
+Date/Publication: 2020-04-27
+RoxygenNote: 7.1.1
