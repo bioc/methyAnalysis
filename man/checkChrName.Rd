@@ -11,7 +11,7 @@ checkChrName(grange, addChr = TRUE)
 }
 \arguments{
   \item{grange}{
-a GRanges, RangedData object, character or named vector
+a GRanges object, character or named vector
 }
   \item{addChr}{
 Whether to add "chr" in front of chromosome names

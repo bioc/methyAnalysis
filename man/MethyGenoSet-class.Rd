@@ -48,7 +48,7 @@
 }
 \section{Slots}{
    \describe{
-   	  \item{\code{rowRanges}:}{a GRanges or RangedData object, inherited from \code{\link[SummarizedExperiment]{SummarizedExperiment}}}
+   	  \item{\code{rowRanges}:}{a GRanges object, inherited from \code{\link[SummarizedExperiment]{SummarizedExperiment}}}
       \item{\code{assays}:}{ contains equal dimensional matrices:
  		\code{exprs} (contains the methylation M-value, same as \code{\link[methylumi]{MethyLumiM-class}}),
  		\code{methylated} (contains the methylated probe intensities. Same as \code{\link[methylumi]{MethyLumiM-class}}), 
