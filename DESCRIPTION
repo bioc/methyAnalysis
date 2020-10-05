@@ -27,7 +27,7 @@ NeedsCompilation: no
 Packaged: 2020-09-08 10:46:30 UTC; duf
 git_url: https://git.bioconductor.org/packages/methyAnalysis
 git_branch: RELEASE_3_11
-git_last_commit: 1e975e3
-git_last_commit_date: 2020-10-01
-Date/Publication: 2020-10-01
+git_last_commit: b2fb28f
+git_last_commit_date: 2020-10-02
+Date/Publication: 2020-10-02
 RoxygenNote: 7.1.1
