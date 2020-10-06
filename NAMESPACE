@@ -27,7 +27,7 @@ importFrom(biomaRt, listAttributes, getBM)
 
 # GenoSet related classes and functions
 importClassesFrom(genoset, GenoSet)
-importClassesFrom(IRanges, IRanges, RangedData)
+importClassesFrom(IRanges, IRanges)
 importClassesFrom(GenomicRanges, GenomicRanges, GRanges)
 importClassesFrom(VariantAnnotation, VRanges)
 importMethodsFrom(IRanges, space, start, end, width, universe,
@@ -39,7 +39,7 @@ importMethodsFrom(VariantAnnotation, ref, alt, altDepth, totalDepth)
 
 importFrom(rtracklayer, export.bw, import.bed, browserSession, ucscTableQuery, getTable, export)
 importFrom(GenomicFeatures, exons, transcripts)
-importFrom(IRanges, IRanges, RangedData)
+importFrom(IRanges, IRanges)
 importFrom(genoset, GenoSet)
 import(GenomeInfoDb)
 importFrom(GenomicRanges, GRanges)
