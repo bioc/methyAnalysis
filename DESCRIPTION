@@ -1,7 +1,7 @@
 Package: methyAnalysis
 Type: Package
 Title: DNA methylation data analysis and visualization
-Version: 1.33.1
+Version: 1.34.0
 Date: 2020-09-08
 Depends: R (>= 2.10), grid, BiocGenerics, IRanges, GenomeInfoDb (>=
         1.22.0), GenomicRanges, Biobase (>= 2.34.0), org.Hs.eg.db
